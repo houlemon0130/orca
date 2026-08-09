@@ -2,8 +2,12 @@ name: Build fork release
 
 # Why: builds the user's qodercli-support branch on GitHub and publishes a
 # release to houlemon0130/orca, so the local app's update channel (which points
-# at this fork) picks up every new build. No signing/notarization: the fork has
-# no Apple certificates, so artifacts are unsigned like a local build.
+# at this fork) picks up every new build.
+#
+# Signing: when the CSC_LINK secret (a base64 Developer ID p12) is configured,
+# the build runs through the repo's signed adhoc path (ORCA_MAC_ADHOC=1), which
+# also notarizes and signs the nested Computer Use helper so macOS TCC grants
+# survive updates. Without the secret the build stays unsigned (local-style).
 #
 # The publish config in config/electron-builder.config.cjs already targets
 # owner houlemon0130 / repo orca (the default, non-hourly path), so plain
@@ -93,14 +97,31 @@ jobs:
           gh release create "v${{ steps.version.outputs.version }}" \
             --repo "$GITHUB_REPOSITORY" \
             --title "${{ steps.version.outputs.version }}" \
-            --notes "Automated build of qodercli-support @ ${{ steps.version.outputs.commit }} (unsigned)" \
+            --notes "Automated build of qodercli-support @ ${{ steps.version.outputs.commit }}" \
             || echo "::warning::release already exists; electron-builder will reuse it"
 
       - name: Publish macOS artifacts
-        run: >-
-          node config/scripts/ensure-native-runtime.mjs --runtime=electron &&
-          ORCA_LOCAL_BUILD_VERSION=${{ steps.version.outputs.version }}
-          ORCA_BUILD_COMMIT=${{ steps.version.outputs.commit }}
-          pnpm exec electron-builder --config config/electron-builder.config.cjs --mac --publish always
+        run: |
+          set -euo pipefail
+          node config/scripts/ensure-native-runtime.mjs --runtime=electron
+          VERSION="${{ steps.version.outputs.version }}"
+          COMMIT="${{ steps.version.outputs.commit }}"
+          if [ -n "${CSC_LINK:-}" ]; then
+            echo "Signing with Developer ID certificate (signed + notarized build)"
+            ORCA_MAC_ADHOC=1 \
+            ORCA_ADHOC_BUILD_VERSION="$VERSION" \
+            ORCA_BUILD_COMMIT="$COMMIT" \
+              pnpm exec electron-builder --config config/electron-builder.config.cjs --mac --publish always
+          else
+            echo "No signing certificate configured; building unsigned (local-style)"
+            ORCA_LOCAL_BUILD_VERSION="$VERSION" \
+            ORCA_BUILD_COMMIT="$COMMIT" \
+              pnpm exec electron-builder --config config/electron-builder.config.cjs --mac --publish always
+          fi
         env:
           GH_TOKEN: ${{ github.token }}
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_KEY_ISSUER: ${{ secrets.APPLE_API_KEY_ISSUER }}

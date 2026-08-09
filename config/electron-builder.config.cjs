@@ -32,9 +32,10 @@ const devChannelBuildVersion = isMacHourly
 // Why each dev channel gets its own repo rather than tagging into the main one:
 // the releases atom feed exposes only the 10 newest entries, so 24 hourly tags a
 // day would evict every stable/RC entry and strand users on a feed with nothing
-// to install. Keeping adhoc separate from hourly too means a branch build cannot
-// be picked up by someone who only meant to ride main.
-const devChannelRepo = isMacHourly ? 'orca-hourly' : isMacAdhoc ? 'orca-adhoc' : null
+// to install.
+// Fork deviation: houlemon0130/orca has no orca-hourly/orca-adhoc repos, so
+// signed adhoc builds must publish to the fork's main repo for the updater.
+const devChannelRepo = isMacHourly ? 'orca-hourly' : null
 const appId = 'com.stablyai.orca'
 const featureWallResources = {
   from: 'resources/onboarding/feature-wall',
