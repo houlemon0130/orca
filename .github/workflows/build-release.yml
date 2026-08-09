@@ -1,0 +1,89 @@
+name: Build fork release
+
+# Why: builds the user's qodercli-support branch on GitHub and publishes a
+# release to houlemon0130/orca, so the local app's update channel (which points
+# at this fork) picks up every new build. No signing/notarization: the fork has
+# no Apple certificates, so artifacts are unsigned like a local build.
+#
+# The publish config in config/electron-builder.config.cjs already targets
+# owner houlemon0130 / repo orca (the default, non-hourly path), so plain
+# electron-builder --publish with the default GITHUB_TOKEN publishes here.
+
+on:
+  push:
+    branches: [qodercli-support]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-fork-release
+  cancel-in-progress: true
+
+jobs:
+  build-mac:
+    if: github.repository == 'houlemon0130/orca'
+    runs-on: macos-latest
+    timeout-minutes: 150
+    env:
+      NODE_OPTIONS: --max-old-space-size=4096
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: qodercli-support
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: package.json
+          cache: pnpm
+
+      - name: Cache electron-builder downloads
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/Library/Caches/electron
+            ~/Library/Caches/electron-builder
+          key: electron-builder-mac-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            electron-builder-mac-
+
+      - name: Install dependencies
+        uses: nick-fields/retry@v4
+        with:
+          timeout_minutes: 10
+          max_attempts: 3
+          retry_wait_seconds: 30
+          command: pnpm install --frozen-lockfile
+
+      - name: Compute build version
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Same shape as a local build: <package version>.local.<timestamp>.<sha12>
+          base="$(node -p "require('./package.json').version")"
+          sha="$(git rev-parse --short=12 HEAD)"
+          echo "version=${base}.local.$(date +%s).${sha}" >>"$GITHUB_OUTPUT"
+          echo "commit=${sha}" >>"$GITHUB_OUTPUT"
+
+      - name: Build app
+        run: pnpm build:release
+
+      - name: Publish macOS artifacts
+        run: >-
+          node config/scripts/ensure-native-runtime.mjs --runtime=electron &&
+          ORCA_LOCAL_BUILD_VERSION=${{ steps.version.outputs.version }}
+          ORCA_BUILD_COMMIT=${{ steps.version.outputs.commit }}
+          pnpm exec electron-builder --config config/electron-builder.config.cjs --mac --publish always
+        env:
+          GH_TOKEN: ${{ github.token }}
