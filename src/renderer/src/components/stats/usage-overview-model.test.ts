@@ -162,7 +162,8 @@ describe('usage overview model', () => {
         scanState: enabledOpenCodeScanState(),
         summary: openCodeSummary,
         daily: openCodeDaily
-      }
+      },
+      qodercli: { scanState: null, summary: null, daily: [] }
     })
 
     expect(overview.totalTokens).toBe(10_800)
@@ -179,6 +180,7 @@ describe('usage overview model', () => {
       day: '2026-05-14',
       totalTokens: 4_500,
       claudeTokens: 2_500,
+      qoderCliTokens: 0,
       codexTokens: 2_000,
       openCodeTokens: 0,
       intensity: 4
@@ -202,6 +204,7 @@ describe('usage overview model', () => {
           day: '2026-05-14',
           totalTokens: 4_500,
           claudeTokens: 2_500,
+          qoderCliTokens: 0,
           codexTokens: 2_000,
           openCodeTokens: 0,
           intensity: 4
@@ -216,6 +219,7 @@ describe('usage overview model', () => {
         day: '2026-05-13',
         totalTokens: 0,
         claudeTokens: 0,
+        qoderCliTokens: 0,
         codexTokens: 0,
         openCodeTokens: 0,
         intensity: 0
@@ -224,6 +228,7 @@ describe('usage overview model', () => {
         day: '2026-05-14',
         totalTokens: 4_500,
         claudeTokens: 2_500,
+        qoderCliTokens: 0,
         codexTokens: 2_000,
         openCodeTokens: 0,
         intensity: 4
@@ -232,6 +237,7 @@ describe('usage overview model', () => {
         day: '2026-05-15',
         totalTokens: 0,
         claudeTokens: 0,
+        qoderCliTokens: 0,
         codexTokens: 0,
         openCodeTokens: 0,
         intensity: 0
@@ -243,7 +249,8 @@ describe('usage overview model', () => {
     const overview = buildUsageOverview({
       claude: { scanState: null, summary: null, daily: [] },
       codex: { scanState: null, summary: null, daily: [] },
-      opencode: { scanState: null, summary: null, daily: [] }
+      opencode: { scanState: null, summary: null, daily: [] },
+      qodercli: { scanState: null, summary: null, daily: [] }
     })
 
     expect(overview.hasAnyEnabledProvider).toBe(false)
@@ -273,7 +280,8 @@ describe('usage overview model', () => {
         summary: null,
         daily: codexDaily
       },
-      opencode: { scanState: null, summary: null, daily: [] }
+      opencode: { scanState: null, summary: null, daily: [] },
+      qodercli: { scanState: null, summary: null, daily: [] }
     })
 
     expect(overview.daily).toHaveLength(130_000)

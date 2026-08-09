@@ -3,6 +3,7 @@ import { BarChart3, Bot, Check, ChevronDown, Clock, GitPullRequest } from 'lucid
 import { useAppStore } from '../../store'
 import { StatCard } from './StatCard'
 import { ClaudeUsagePane } from './ClaudeUsagePane'
+import { QoderCliUsagePane } from './QoderCliUsagePane'
 import { CodexUsagePane } from './CodexUsagePane'
 import { GrokUsagePane } from './GrokUsagePane'
 import { OpenCodeUsagePane } from './OpenCodeUsagePane'
@@ -52,7 +53,7 @@ function formatTrackingSince(timestamp: number | null): string {
   })
 }
 
-type UsageTab = 'overview' | 'claude' | 'codex' | 'opencode' | 'grok'
+type UsageTab = 'overview' | 'claude' | 'qodercli' | 'codex' | 'opencode' | 'grok'
 
 const USAGE_ANALYTICS_OPTIONS = [
   {
@@ -65,6 +66,12 @@ const USAGE_ANALYTICS_OPTIONS = [
     id: 'claude',
     get label() {
       return translate('auto.components.stats.StatsPane.85457c02fe', 'Claude')
+    }
+  },
+  {
+    id: 'qodercli',
+    get label() {
+      return translate('auto.components.stats.StatsPane.qoderCliUsageTab', 'Qoder CLI')
     }
   },
   {
@@ -204,6 +211,8 @@ export function StatsPane(): React.JSX.Element {
             <UsageOverviewPane />
           ) : activeUsageTab === 'claude' ? (
             <ClaudeUsagePane />
+          ) : activeUsageTab === 'qodercli' ? (
+            <QoderCliUsagePane />
           ) : activeUsageTab === 'codex' ? (
             <CodexUsagePane />
           ) : activeUsageTab === 'opencode' ? (

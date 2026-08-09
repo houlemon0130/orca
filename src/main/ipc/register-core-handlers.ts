@@ -11,6 +11,7 @@ import { registerFilesystemWatcherHandlers } from './filesystem-watcher'
 import { registerClaudeUsageHandlers } from './claude-usage'
 import { registerCodexUsageHandlers } from './codex-usage'
 import { registerOpenCodeUsageHandlers } from './opencode-usage'
+import { registerQoderCliUsageHandlers } from './qodercli-usage'
 import { registerGitHubHandlers } from './github'
 import { registerGitLabHandlers } from './gitlab'
 import { registerHostedReviewHandlers } from './hosted-review'
@@ -74,6 +75,7 @@ import {
 import type { ClaudeUsageStore } from '../claude-usage/store'
 import type { CodexUsageStore } from '../codex-usage/store'
 import type { OpenCodeUsageStore } from '../opencode-usage/store'
+import type { QoderCliUsageStore } from '../qodercli-usage/store'
 import type { RateLimitService } from '../rate-limits/service'
 import type { CodexAccountService } from '../codex-accounts/service'
 import type { ClaudeAccountService } from '../claude-accounts/service'
@@ -112,6 +114,7 @@ export function registerCoreHandlers(
   claudeUsage: ClaudeUsageStore,
   codexUsage: CodexUsageStore,
   openCodeUsage: OpenCodeUsageStore,
+  qoderCliUsage: QoderCliUsageStore,
   codexAccounts: CodexAccountService,
   claudeAccounts: ClaudeAccountService,
   rateLimits: RateLimitService,
@@ -144,6 +147,7 @@ export function registerCoreHandlers(
   registerClaudeUsageHandlers(claudeUsage)
   registerCodexUsageHandlers(codexUsage)
   registerOpenCodeUsageHandlers(openCodeUsage)
+  registerQoderCliUsageHandlers(qoderCliUsage)
   registerCodexAccountHandlers(codexAccounts, () => store.getSettings())
   registerAgentHookHandlers(runtime, { getPtyIdForPaneKey })
   registerCodexConfigSyncHandlers(codexAccounts.runtimeHomeService)

@@ -500,6 +500,17 @@ import type {
   OpenCodeUsageSummary
 } from '../shared/opencode-usage-types'
 import type {
+  QoderCliUsageBreakdownKind,
+  QoderCliUsageBreakdownRow,
+  QoderCliUsageDailyPoint,
+  QoderCliUsageRange,
+  QoderCliUsageScanState,
+  QoderCliUsageScope,
+  QoderCliUsageSessionRow,
+  QoderCliUsageSnapshot,
+  QoderCliUsageSummary
+} from '../shared/qodercli-usage-types'
+import type {
   AiVaultDeleteSessionArgs,
   AiVaultDeleteSessionResult
 } from '../shared/ai-vault-session-deletion'
@@ -915,6 +926,35 @@ export type OpenCodeUsageApi = {
     range: OpenCodeUsageRange
     limit?: number
   }) => Promise<OpenCodeUsageSessionRow[]>
+}
+
+export type QoderCliUsageApi = {
+  getScanState: () => Promise<QoderCliUsageScanState>
+  setEnabled: (args: { enabled: boolean }) => Promise<QoderCliUsageScanState>
+  refresh: (args?: { force?: boolean }) => Promise<QoderCliUsageScanState>
+  getSnapshot: (args: {
+    scope: QoderCliUsageScope
+    range: QoderCliUsageRange
+    limit?: number
+  }) => Promise<QoderCliUsageSnapshot>
+  getSummary: (args: {
+    scope: QoderCliUsageScope
+    range: QoderCliUsageRange
+  }) => Promise<QoderCliUsageSummary>
+  getDaily: (args: {
+    scope: QoderCliUsageScope
+    range: QoderCliUsageRange
+  }) => Promise<QoderCliUsageDailyPoint[]>
+  getBreakdown: (args: {
+    scope: QoderCliUsageScope
+    range: QoderCliUsageRange
+    kind: QoderCliUsageBreakdownKind
+  }) => Promise<QoderCliUsageBreakdownRow[]>
+  getRecentSessions: (args: {
+    scope: QoderCliUsageScope
+    range: QoderCliUsageRange
+    limit?: number
+  }) => Promise<QoderCliUsageSessionRow[]>
 }
 
 export type AiVaultApi = {
@@ -2769,6 +2809,7 @@ export type PreloadApi = {
   claudeUsage: ClaudeUsageApi
   codexUsage: CodexUsageApi
   openCodeUsage: OpenCodeUsageApi
+  qoderCliUsage: QoderCliUsageApi
   aiVault: AiVaultApi
   nativeChat: NativeChatApi
   fs: {

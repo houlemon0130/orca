@@ -4235,6 +4235,24 @@ const api = {
       ipcRenderer.invoke('openCodeUsage:getRecentSessions', args)
   },
 
+  qoderCliUsage: {
+    getScanState: (): Promise<unknown> => ipcRenderer.invoke('qoderCliUsage:getScanState'),
+    setEnabled: (args: { enabled: boolean }): Promise<unknown> =>
+      ipcRenderer.invoke('qoderCliUsage:setEnabled', args),
+    refresh: (args?: { force?: boolean }): Promise<unknown> =>
+      ipcRenderer.invoke('qoderCliUsage:refresh', args),
+    getSnapshot: (args: { scope: string; range: string; limit?: number }): Promise<unknown> =>
+      ipcRenderer.invoke('qoderCliUsage:getSnapshot', args),
+    getSummary: (args: { scope: string; range: string }): Promise<unknown> =>
+      ipcRenderer.invoke('qoderCliUsage:getSummary', args),
+    getDaily: (args: { scope: string; range: string }): Promise<unknown> =>
+      ipcRenderer.invoke('qoderCliUsage:getDaily', args),
+    getBreakdown: (args: { scope: string; range: string; kind: string }): Promise<unknown> =>
+      ipcRenderer.invoke('qoderCliUsage:getBreakdown', args),
+    getRecentSessions: (args: { scope: string; range: string; limit?: number }): Promise<unknown> =>
+      ipcRenderer.invoke('qoderCliUsage:getRecentSessions', args)
+  },
+
   aiVault: {
     listSessions: (args?: AiVaultListArgs): Promise<unknown> =>
       ipcRenderer.invoke('aiVault:listSessions', args),

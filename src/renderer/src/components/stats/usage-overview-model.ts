@@ -15,9 +15,14 @@ import type {
   OpenCodeUsageScanState,
   OpenCodeUsageSummary
 } from '../../../../shared/opencode-usage-types'
+import type {
+  QoderCliUsageDailyPoint,
+  QoderCliUsageScanState,
+  QoderCliUsageSummary
+} from '../../../../shared/qodercli-usage-types'
 import { translate } from '@/i18n/i18n'
 
-export type UsageProviderId = 'claude' | 'codex' | 'opencode'
+export type UsageProviderId = 'claude' | 'qodercli' | 'codex' | 'opencode'
 
 export type UsageProviderOverview = {
   id: UsageProviderId
@@ -45,6 +50,7 @@ export type UsageOverviewDailyPoint = {
   day: string
   totalTokens: number
   claudeTokens: number
+  qoderCliTokens: number
   codexTokens: number
   openCodeTokens: number
   intensity: 0 | 1 | 2 | 3 | 4
@@ -87,6 +93,11 @@ export type UsageOverviewInput = {
     scanState: OpenCodeUsageScanState | null
     summary: OpenCodeUsageSummary | null
     daily: OpenCodeUsageDailyPoint[]
+  }
+  qodercli: {
+    scanState: QoderCliUsageScanState | null
+    summary: QoderCliUsageSummary | null
+    daily: QoderCliUsageDailyPoint[]
   }
 }
 
@@ -162,6 +173,40 @@ function createClaudeProvider(input: UsageOverviewInput['claude']): UsageProvide
   }
 }
 
+function createQoderCliProvider(input: UsageOverviewInput['qodercli']): UsageProviderOverview {
+  const summary = input.summary
+  // Why turns (not tokens) mark active days: current qodercli builds zero their
+  // token counts, so a token filter would report zero activity forever.
+  const dailyActiveDays = input.daily.filter((entry) => entry.turns > 0).map((entry) => entry.day)
+  return {
+    id: 'qodercli',
+    label: translate('auto.components.stats.usage.overview.model.qoderCliLabel', 'Qoder CLI'),
+    enabled: input.scanState?.enabled ?? false,
+    isScanning: input.scanState?.isScanning ?? false,
+    hasData: summary?.hasAnyQoderCliData ?? input.scanState?.hasAnyQoderCliData ?? false,
+    lastScanCompletedAt: input.scanState?.lastScanCompletedAt ?? null,
+    lastScanError: input.scanState?.lastScanError ?? null,
+    sessions: summary?.sessions ?? 0,
+    activityLabel: 'turns',
+    activityCount: summary?.turns ?? 0,
+    totalTokens: summary
+      ? summary.inputTokens +
+        summary.outputTokens +
+        summary.cacheReadTokens +
+        summary.cacheWriteTokens
+      : 0,
+    newInputTokens: summary?.inputTokens ?? 0,
+    outputTokens: summary?.outputTokens ?? 0,
+    cacheTokens: summary ? summary.cacheReadTokens + summary.cacheWriteTokens : 0,
+    reasoningTokens: 0,
+    // Why null: qodercli bills in provider credits, which are not USD.
+    estimatedCostUsd: null,
+    topModel: summary?.topModel ?? null,
+    topProject: summary?.topProject ?? null,
+    activeDays: countActiveDays(dailyActiveDays)
+  }
+}
+
 function createCodexProvider(input: UsageOverviewInput['codex']): UsageProviderOverview {
   const summary = input.summary
   const dailyActiveDays = input.daily
@@ -221,41 +266,42 @@ function createOpenCodeProvider(input: UsageOverviewInput['opencode']): UsagePro
 function buildDailyOverview(input: UsageOverviewInput): UsageOverviewDailyPoint[] {
   const byDay = new Map<string, Omit<UsageOverviewDailyPoint, 'intensity'>>()
 
-  for (const entry of input.claude.daily) {
-    const current = byDay.get(entry.day) ?? {
-      day: entry.day,
+  const seedDay = (day: string): Omit<UsageOverviewDailyPoint, 'intensity'> =>
+    byDay.get(day) ?? {
+      day,
       totalTokens: 0,
       claudeTokens: 0,
+      qoderCliTokens: 0,
       codexTokens: 0,
       openCodeTokens: 0
     }
+
+  for (const entry of input.claude.daily) {
+    const current = seedDay(entry.day)
     const total = getClaudeDailyTotal(entry)
     current.totalTokens += total
     current.claudeTokens += total
     byDay.set(entry.day, current)
   }
 
+  for (const entry of input.qodercli.daily) {
+    const current = seedDay(entry.day)
+    const total =
+      entry.inputTokens + entry.outputTokens + entry.cacheReadTokens + entry.cacheWriteTokens
+    current.totalTokens += total
+    current.qoderCliTokens += total
+    byDay.set(entry.day, current)
+  }
+
   for (const entry of input.codex.daily) {
-    const current = byDay.get(entry.day) ?? {
-      day: entry.day,
-      totalTokens: 0,
-      claudeTokens: 0,
-      codexTokens: 0,
-      openCodeTokens: 0
-    }
+    const current = seedDay(entry.day)
     current.totalTokens += entry.totalTokens
     current.codexTokens += entry.totalTokens
     byDay.set(entry.day, current)
   }
 
   for (const entry of input.opencode.daily) {
-    const current = byDay.get(entry.day) ?? {
-      day: entry.day,
-      totalTokens: 0,
-      claudeTokens: 0,
-      codexTokens: 0,
-      openCodeTokens: 0
-    }
+    const current = seedDay(entry.day)
     current.totalTokens += entry.totalTokens
     current.openCodeTokens += entry.totalTokens
     byDay.set(entry.day, current)
@@ -302,6 +348,7 @@ export function getRecentUsageDays(
         day,
         totalTokens: 0,
         claudeTokens: 0,
+        qoderCliTokens: 0,
         codexTokens: 0,
         openCodeTokens: 0,
         intensity: 0
@@ -314,6 +361,7 @@ export function getRecentUsageDays(
 export function buildUsageOverview(input: UsageOverviewInput): UsageOverviewModel {
   const providers = [
     createClaudeProvider(input.claude),
+    createQoderCliProvider(input.qodercli),
     createCodexProvider(input.codex),
     createOpenCodeProvider(input.opencode)
   ]

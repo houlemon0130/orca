@@ -3697,7 +3697,8 @@
           "908c470587": "codex",
           "eb6a066185": "claude",
           "eee19cfade": "概览",
-          "grokUsageTab": "Grok"
+          "grokUsageTab": "Grok",
+          "qoderCliUsageTab": "Qoder CLI"
         },
         "UsageOverviewPane": {
           "22ed1b7669": "会话",
@@ -3717,7 +3718,8 @@
           "ca6bc5fded": "刷新",
           "e06d1baf5c": "刷新使用概览",
           "c760c481c5": "使用概述",
-          "55c910f4f1": "- 部分型号价格不详"
+          "55c910f4f1": "- 部分型号价格不详",
+          "enableQoderCli": "启用 Qoder CLI"
         },
         "share": {
           "card": {
@@ -3762,7 +3764,8 @@
             "model": {
               "bc474051e5": "OpenCode",
               "eb220d193b": "Codex",
-              "544d6d4c16": "Claude"
+              "544d6d4c16": "Claude",
+              "qoderCliLabel": "Qoder CLI"
             },
             "sections": {
               "9564a3b21b": "会话 -",
@@ -3791,7 +3794,8 @@
         },
         "UsageBreakdownSection": {
           "7765a4c3e1": "n/a",
-          "247c93ca92": "• 推理价格"
+          "247c93ca92": "• 推理价格",
+          "creditsSuffix": "{{value0}} 积分"
         },
         "UsageSessionsTable": {
           "1afc25eb06": "轮次",
@@ -3815,6 +3819,52 @@
           "e5a6b7c8d9": "已用每周额度",
           "f6b7c8d9e0": "计费周期重置",
           "a7b8c9d0e1": "Grok 账户设置"
+        },
+        "QoderCliUsageDailyChart": {
+          "title": "每日用量",
+          "subtitle": "按天统计的积分与轮次。",
+          "tooltipCredits": "{{value0}} 积分",
+          "tooltipTurns": "{{value0}} 轮"
+        },
+        "QoderCliUsagePane": {
+          "byModel": "按模型",
+          "topModel": "最常用模型：",
+          "byProject": "按项目",
+          "topProject": "最常用项目：",
+          "scopeOrca": "仅 Orca 工作树",
+          "scopeAll": "全部本地 Qoder CLI 用量",
+          "rangeLast7Days": "最近 7 天",
+          "rangeLast30Days": "最近 30 天",
+          "rangeLast90Days": "最近 90 天",
+          "rangeAllTime": "全部时间",
+          "title": "Qoder CLI 用量统计",
+          "description": "读取本地 Qoder CLI 会话记录，展示积分、模型与会话统计。",
+          "enableAria": "启用 Qoder CLI 用量分析",
+          "lastScanError": " • 上次扫描错误：{{value0}}",
+          "optionsAria": "Qoder CLI 用量选项",
+          "filters": "筛选",
+          "scope": "范围",
+          "range": "时间段",
+          "refreshAria": "刷新 Qoder CLI 用量",
+          "refresh": "刷新",
+          "noData": "此范围内尚未发现本地 Qoder CLI 用量。",
+          "credits": "积分",
+          "sessionsTurns": "会话 / 轮次",
+          "inputTokens": "输入 token",
+          "outputTokens": "输出 token",
+          "cacheRead": "缓存读取",
+          "cacheWrite": "缓存写入",
+          "creditsNote": "积分来自 Qoder CLI 会话记录中的 usage 字段。token 数按原样展示；当前版本 CLI 记录为零。",
+          "recentSessions": "最近会话",
+          "recentSessionsSubtitle": "此范围内最近的本地 Qoder CLI 会话。",
+          "colLastActive": "最近活跃",
+          "colProject": "项目",
+          "colModel": "模型",
+          "colTurns": "轮次",
+          "colInput": "输入",
+          "colOutput": "输出",
+          "colCredits": "积分",
+          "unknownModel": "未知"
         }
       },
       "sparse": {

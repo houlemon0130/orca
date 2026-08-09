@@ -15,6 +15,8 @@ export type ClaudeUsageLocationBreakdown = {
   outputTokens: number
   cacheReadTokens: number
   cacheWriteTokens: number
+  /** Provider credits (qodercli's billing unit). Absent on Claude data. */
+  credits?: number
 }
 
 export type ClaudeUsageSession = {
@@ -31,6 +33,8 @@ export type ClaudeUsageSession = {
   totalOutputTokens: number
   totalCacheReadTokens: number
   totalCacheWriteTokens: number
+  /** Provider credits (qodercli's billing unit). Absent on Claude data. */
+  totalCredits?: number
   locationBreakdown: ClaudeUsageLocationBreakdown[]
 }
 
@@ -47,6 +51,8 @@ export type ClaudeUsageDailyAggregate = {
   outputTokens: number
   cacheReadTokens: number
   cacheWriteTokens: number
+  /** Provider credits (qodercli's billing unit). Absent on Claude data. */
+  credits?: number
 }
 
 export type ClaudeUsagePersistedState = {
@@ -86,6 +92,8 @@ export type ClaudeUsageParsedTurn = {
   outputTokens: number
   cacheReadTokens: number
   cacheWriteTokens: number
+  /** Provider credits (qodercli's billing unit). Absent on Claude data. */
+  credits?: number
 }
 
 export type ClaudeUsageAttributedTurn = ClaudeUsageParsedTurn & {

@@ -21,6 +21,7 @@ import { StatsCollector, initStatsPath } from './stats/collector'
 import { ClaudeUsageStore, initClaudeUsagePath } from './claude-usage/store'
 import { CodexUsageStore, initCodexUsagePath } from './codex-usage/store'
 import { OpenCodeUsageStore, initOpenCodeUsagePath } from './opencode-usage/store'
+import { QoderCliUsageStore, initQoderCliUsagePath } from './qodercli-usage/store'
 import {
   killAllPty,
   clearProviderPtyState,
@@ -336,6 +337,7 @@ let stats: StatsCollector | null = null
 let claudeUsage: ClaudeUsageStore | null = null
 let codexUsage: CodexUsageStore | null = null
 let openCodeUsage: OpenCodeUsageStore | null = null
+let qoderCliUsage: QoderCliUsageStore | null = null
 let codexAccounts: CodexAccountService | null = null
 let codexRuntimeHome: CodexRuntimeHomeService | null = null
 let codexSessionMigration: ReturnType<typeof createCodexSessionMigrationScheduler> | null = null
@@ -813,6 +815,7 @@ if (hasSingleInstanceLock) {
   initClaudeUsagePath()
   initCodexUsagePath()
   initOpenCodeUsagePath()
+  initQoderCliUsagePath()
   crashReports = CrashReportStore.fromUserData()
   recordCrashBreadcrumb('app_started', {
     packaged: app.isPackaged,
@@ -1239,6 +1242,9 @@ function openMainWindow(): BrowserWindow {
   if (!openCodeUsage) {
     throw new Error('OpenCode usage store must be initialized before opening the main window')
   }
+  if (!qoderCliUsage) {
+    throw new Error('Qoder CLI usage store must be initialized before opening the main window')
+  }
   if (!rateLimits) {
     throw new Error('Rate limit service must be initialized before opening the main window')
   }
@@ -1374,6 +1380,7 @@ function openMainWindow(): BrowserWindow {
     claudeUsage,
     codexUsage,
     openCodeUsage,
+    qoderCliUsage,
     codexAccounts,
     claudeAccounts,
     rateLimits,
@@ -2270,6 +2277,7 @@ void app.whenReady().then(async () => {
   claudeUsage = new ClaudeUsageStore(store)
   codexUsage = new CodexUsageStore(store)
   openCodeUsage = new OpenCodeUsageStore(store)
+  qoderCliUsage = new QoderCliUsageStore(store)
   rateLimits = new RateLimitService()
   codexRuntimeHome = new CodexRuntimeHomeService(store)
   void startCodexStateDbBackfillRecoveryInBackground(getOrcaManagedCodexHomePath())
@@ -3132,7 +3140,8 @@ app.on('will-quit', (e) => {
   const usageCacheFlush = Promise.all([
     claudeUsage?.flush(),
     codexUsage?.flush(),
-    openCodeUsage?.flush()
+    openCodeUsage?.flush(),
+    qoderCliUsage?.flush()
   ]).then(() => {})
 
   // Why: capture pid/runtimeId synchronously (before any await) so a later teardown path can't null them out mid-chain.

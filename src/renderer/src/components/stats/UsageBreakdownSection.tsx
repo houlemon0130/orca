@@ -9,6 +9,8 @@ export type UsageBreakdownRow = {
   eventsOrTurns: number
   hasInferredPricing?: boolean
   estimatedCostUsd?: number | null
+  /** Provider credits (qodercli's billing unit), shown instead of a USD cost. */
+  credits?: number
 }
 
 type UsageBreakdownSectionProps = {
@@ -56,6 +58,13 @@ export function UsageBreakdownSection({
                 : ''}
               {row.estimatedCostUsd !== null && row.estimatedCostUsd !== undefined
                 ? ` • ${formatCost(row.estimatedCostUsd)}`
+                : ''}
+              {row.credits !== undefined
+                ? ` • ${translate(
+                    'auto.components.stats.UsageBreakdownSection.creditsSuffix',
+                    '{{value0}} credits',
+                    { value0: row.credits.toFixed(2) }
+                  )}`
                 : ''}
             </div>
           </div>

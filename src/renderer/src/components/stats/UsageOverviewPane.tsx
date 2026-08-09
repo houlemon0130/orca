@@ -40,22 +40,29 @@ export function UsageOverviewPane(): React.JSX.Element {
   const openCodeScanState = useAppStore((state) => state.openCodeUsageScanState)
   const openCodeSummary = useAppStore((state) => state.openCodeUsageSummary)
   const openCodeDaily = useAppStore((state) => state.openCodeUsageDaily)
+  const qoderCliScanState = useAppStore((state) => state.qoderCliUsageScanState)
+  const qoderCliSummary = useAppStore((state) => state.qoderCliUsageSummary)
+  const qoderCliDaily = useAppStore((state) => state.qoderCliUsageDaily)
   const fetchClaudeUsage = useAppStore((state) => state.fetchClaudeUsage)
   const fetchCodexUsage = useAppStore((state) => state.fetchCodexUsage)
   const fetchOpenCodeUsage = useAppStore((state) => state.fetchOpenCodeUsage)
+  const fetchQoderCliUsage = useAppStore((state) => state.fetchQoderCliUsage)
   const refreshClaudeUsage = useAppStore((state) => state.refreshClaudeUsage)
   const refreshCodexUsage = useAppStore((state) => state.refreshCodexUsage)
   const refreshOpenCodeUsage = useAppStore((state) => state.refreshOpenCodeUsage)
+  const refreshQoderCliUsage = useAppStore((state) => state.refreshQoderCliUsage)
   const enableClaudeUsage = useAppStore((state) => state.enableClaudeUsage)
   const enableCodexUsage = useAppStore((state) => state.enableCodexUsage)
   const enableOpenCodeUsage = useAppStore((state) => state.enableOpenCodeUsage)
+  const enableQoderCliUsage = useAppStore((state) => state.enableQoderCliUsage)
   const recordFeatureInteraction = useAppStore((state) => state.recordFeatureInteraction)
 
   useEffect(() => {
     void fetchClaudeUsage()
     void fetchCodexUsage()
     void fetchOpenCodeUsage()
-  }, [fetchClaudeUsage, fetchCodexUsage, fetchOpenCodeUsage])
+    void fetchQoderCliUsage()
+  }, [fetchClaudeUsage, fetchCodexUsage, fetchOpenCodeUsage, fetchQoderCliUsage])
 
   const overview = useMemo(
     () =>
@@ -74,6 +81,11 @@ export function UsageOverviewPane(): React.JSX.Element {
           scanState: openCodeScanState,
           summary: openCodeSummary,
           daily: openCodeDaily
+        },
+        qodercli: {
+          scanState: qoderCliScanState,
+          summary: qoderCliSummary,
+          daily: qoderCliDaily
         }
       }),
     [
@@ -85,7 +97,10 @@ export function UsageOverviewPane(): React.JSX.Element {
       codexSummary,
       openCodeDaily,
       openCodeScanState,
-      openCodeSummary
+      openCodeSummary,
+      qoderCliDaily,
+      qoderCliScanState,
+      qoderCliSummary
     ]
   )
   const recentDays = useMemo(
@@ -98,7 +113,8 @@ export function UsageOverviewPane(): React.JSX.Element {
     void Promise.all([
       claudeScanState?.enabled ? refreshClaudeUsage() : Promise.resolve(),
       codexScanState?.enabled ? refreshCodexUsage() : Promise.resolve(),
-      openCodeScanState?.enabled ? refreshOpenCodeUsage() : Promise.resolve()
+      openCodeScanState?.enabled ? refreshOpenCodeUsage() : Promise.resolve(),
+      qoderCliScanState?.enabled ? refreshQoderCliUsage() : Promise.resolve()
     ])
   }
 
@@ -191,6 +207,19 @@ export function UsageOverviewPane(): React.JSX.Element {
                     'Enable OpenCode'
                   )}
                 </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    recordFeatureInteraction('usage-tracking')
+                    void enableQoderCliUsage()
+                  }}
+                >
+                  {translate(
+                    'auto.components.stats.UsageOverviewPane.enableQoderCli',
+                    'Enable Qoder CLI'
+                  )}
+                </Button>
               </div>
             </div>
           </div>
@@ -274,6 +303,8 @@ export function UsageOverviewPane(): React.JSX.Element {
                 recordFeatureInteraction('usage-tracking')
                 if (provider.id === 'claude') {
                   void enableClaudeUsage()
+                } else if (provider.id === 'qodercli') {
+                  void enableQoderCliUsage()
                 } else if (provider.id === 'codex') {
                   void enableCodexUsage()
                 } else {

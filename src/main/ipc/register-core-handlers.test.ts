@@ -9,6 +9,7 @@ const {
   registerClaudeUsageHandlersMock,
   registerCodexUsageHandlersMock,
   registerOpenCodeUsageHandlersMock,
+  registerQoderCliUsageHandlersMock,
   registerGitHubHandlersMock,
   registerFeedbackHandlersMock,
   registerStatsHandlersMock,
@@ -74,6 +75,7 @@ const {
   registerClaudeUsageHandlersMock: vi.fn(),
   registerCodexUsageHandlersMock: vi.fn(),
   registerOpenCodeUsageHandlersMock: vi.fn(),
+  registerQoderCliUsageHandlersMock: vi.fn(),
   registerGitHubHandlersMock: vi.fn(),
   registerFeedbackHandlersMock: vi.fn(),
   registerStatsHandlersMock: vi.fn(),
@@ -184,6 +186,10 @@ vi.mock('./codex-usage', () => ({
 
 vi.mock('./opencode-usage', () => ({
   registerOpenCodeUsageHandlers: registerOpenCodeUsageHandlersMock
+}))
+
+vi.mock('./qodercli-usage', () => ({
+  registerQoderCliUsageHandlers: registerQoderCliUsageHandlersMock
 }))
 
 vi.mock('./github', () => ({
@@ -468,6 +474,7 @@ describe('registerCoreHandlers', () => {
       claudeUsage as never,
       codexUsage as never,
       openCodeUsage as never,
+      { marker: 'qoderCliUsage' } as never,
       codexAccounts as never,
       claudeAccounts as never,
       rateLimits as never,
@@ -633,6 +640,7 @@ describe('registerCoreHandlers', () => {
       claudeUsage2 as never,
       codexUsage2 as never,
       openCodeUsage2 as never,
+      { marker: 'qoderCliUsage2' } as never,
       codexAccounts2 as never,
       claudeAccounts2 as never,
       rateLimits2 as never,

@@ -40,6 +40,8 @@ type ClaudeUsageSourceRecord = {
       output_tokens?: number
       cache_read_input_tokens?: number
       cache_creation_input_tokens?: number
+      /** qodercli's billing unit; absent from Claude Code records. */
+      credits?: number
     }
   }
 }
@@ -47,6 +49,15 @@ type ClaudeUsageSourceRecord = {
 const CLAUDE_PROJECTS_DIR = join(homedir(), '.claude', 'projects')
 const CLAUDE_TRANSCRIPTS_DIR = join(homedir(), '.claude', 'transcripts')
 const FILE_SCAN_BATCH_SIZE = 4
+
+export type ClaudeUsageScanOptions = {
+  /** Transcript roots to walk; defaults to the Claude home roots. */
+  roots?: string[]
+  /** Keep turns whose token counts are all zero, as long as the record carries a
+   *  usage object. Why: qodercli writes zeroed token counts but real `credits`,
+   *  so Claude's tokens>0 filter would drop every one of its turns. */
+  acceptZeroTokenTurns?: boolean
+}
 
 type ClaudeUsageParsedSourceTurn = ClaudeUsageParsedTurn & {
   dedupeKey: string | null
@@ -155,8 +166,9 @@ function appendDiscoveredFiles(target: string[], source: readonly string[]): voi
   }
 }
 
-export async function listClaudeTranscriptFiles(): Promise<string[]> {
-  const roots = [CLAUDE_PROJECTS_DIR, CLAUDE_TRANSCRIPTS_DIR]
+export async function listClaudeTranscriptFiles(
+  roots: string[] = [CLAUDE_PROJECTS_DIR, CLAUDE_TRANSCRIPTS_DIR]
+): Promise<string[]> {
   const files = await Promise.all(
     roots.map(async (root) => {
       try {
@@ -190,7 +202,8 @@ function stripClaudeSourceMetadata(turn: ClaudeUsageParsedSourceTurn): ClaudeUsa
     inputTokens: turn.inputTokens,
     outputTokens: turn.outputTokens,
     cacheReadTokens: turn.cacheReadTokens,
-    cacheWriteTokens: turn.cacheWriteTokens
+    cacheWriteTokens: turn.cacheWriteTokens,
+    ...(turn.credits !== undefined ? { credits: turn.credits } : {})
   }
 }
 
@@ -211,6 +224,9 @@ function dedupeClaudeUsageTurns(
         existing.outputTokens = Math.max(existing.outputTokens, turn.outputTokens)
         existing.cacheReadTokens = Math.max(existing.cacheReadTokens, turn.cacheReadTokens)
         existing.cacheWriteTokens = Math.max(existing.cacheWriteTokens, turn.cacheWriteTokens)
+        if (turn.credits !== undefined) {
+          existing.credits = Math.max(existing.credits ?? 0, turn.credits)
+        }
         continue
       }
     }
@@ -226,7 +242,8 @@ function dedupeClaudeUsageTurns(
 
 function parseClaudeUsageSourceRecord(
   line: string,
-  fallbackSessionId: string | null = null
+  fallbackSessionId: string | null = null,
+  acceptZeroTokenTurns = false
 ): ClaudeUsageParsedSourceTurn | null {
   let parsed: ClaudeUsageSourceRecord
   try {
@@ -248,9 +265,17 @@ function parseClaudeUsageSourceRecord(
   const outputTokens = usage?.output_tokens ?? 0
   const cacheReadTokens = usage?.cache_read_input_tokens ?? 0
   const cacheWriteTokens = usage?.cache_creation_input_tokens ?? 0
+  const credits =
+    typeof usage?.credits === 'number' && Number.isFinite(usage.credits) && usage.credits >= 0
+      ? usage.credits
+      : undefined
 
   if (inputTokens + outputTokens + cacheReadTokens + cacheWriteTokens <= 0) {
-    return null
+    // Why: usage-null rows are streaming partials on both Claude and its forks;
+    // only a fork's zeroed-but-present usage object marks a real billed turn.
+    if (!acceptZeroTokenTurns || !usage) {
+      return null
+    }
   }
 
   return {
@@ -266,7 +291,8 @@ function parseClaudeUsageSourceRecord(
     inputTokens,
     outputTokens,
     cacheReadTokens,
-    cacheWriteTokens
+    cacheWriteTokens,
+    ...(credits !== undefined ? { credits } : {})
   }
 }
 
@@ -291,7 +317,10 @@ export function parseClaudeUsageRecord(line: string): ClaudeUsageParsedTurn | nu
   return parsed ? stripClaudeSourceMetadata(parsed) : null
 }
 
-export async function parseClaudeUsageFile(filePath: string): Promise<ClaudeUsageParsedTurn[]> {
+export async function parseClaudeUsageFile(
+  filePath: string,
+  acceptZeroTokenTurns = false
+): Promise<ClaudeUsageParsedTurn[]> {
   const turns: ClaudeUsageParsedSourceTurn[] = []
   const fallbackSessionId = basename(filePath, '.jsonl')
   const lines = createInterface({
@@ -300,7 +329,7 @@ export async function parseClaudeUsageFile(filePath: string): Promise<ClaudeUsag
   })
 
   for await (const line of lines) {
-    const parsed = parseClaudeUsageSourceRecord(line, fallbackSessionId)
+    const parsed = parseClaudeUsageSourceRecord(line, fallbackSessionId, acceptZeroTokenTurns)
     if (parsed) {
       turns.push(parsed)
     }
@@ -309,7 +338,10 @@ export async function parseClaudeUsageFile(filePath: string): Promise<ClaudeUsag
   return dedupeClaudeUsageTurns(turns).map(stripClaudeSourceMetadata)
 }
 
-async function readClaudeUsageScanFile(filePath: string): Promise<{
+async function readClaudeUsageScanFile(
+  filePath: string,
+  acceptZeroTokenTurns = false
+): Promise<{
   processedFile: ClaudeUsageProcessedFile
   turns: ClaudeUsageParsedSourceTurn[]
 }> {
@@ -324,7 +356,7 @@ async function readClaudeUsageScanFile(filePath: string): Promise<{
 
   for await (const line of lines) {
     lineCount++
-    const parsed = parseClaudeUsageSourceRecord(line, fallbackSessionId)
+    const parsed = parseClaudeUsageSourceRecord(line, fallbackSessionId, acceptZeroTokenTurns)
     if (parsed) {
       turns.push(parsed)
     }
@@ -437,6 +469,9 @@ function mergeClaudeSessions(
     existing.totalOutputTokens += session.totalOutputTokens
     existing.totalCacheReadTokens += session.totalCacheReadTokens
     existing.totalCacheWriteTokens += session.totalCacheWriteTokens
+    if (session.totalCredits !== undefined) {
+      existing.totalCredits = (existing.totalCredits ?? 0) + session.totalCredits
+    }
 
     for (const location of session.locationBreakdown) {
       const existingLocation =
@@ -448,6 +483,9 @@ function mergeClaudeSessions(
         existingLocation.outputTokens += location.outputTokens
         existingLocation.cacheReadTokens += location.cacheReadTokens
         existingLocation.cacheWriteTokens += location.cacheWriteTokens
+        if (location.credits !== undefined) {
+          existingLocation.credits = (existingLocation.credits ?? 0) + location.credits
+        }
       } else {
         existing.locationBreakdown.push({ ...location })
       }
@@ -472,6 +510,9 @@ function mergeClaudeDailyAggregates(
     existing.outputTokens += aggregate.outputTokens
     existing.cacheReadTokens += aggregate.cacheReadTokens
     existing.cacheWriteTokens += aggregate.cacheWriteTokens
+    if (aggregate.credits !== undefined) {
+      existing.credits = (existing.credits ?? 0) + aggregate.credits
+    }
   }
 }
 
@@ -539,6 +580,9 @@ export function aggregateClaudeUsage(turns: ClaudeUsageAttributedTurn[]): {
     session.totalOutputTokens += turn.outputTokens
     session.totalCacheReadTokens += turn.cacheReadTokens
     session.totalCacheWriteTokens += turn.cacheWriteTokens
+    if (turn.credits !== undefined) {
+      session.totalCredits = (session.totalCredits ?? 0) + turn.credits
+    }
 
     const location =
       session.locationBreakdown.find((entry) => entry.locationKey === turn.projectKey) ?? null
@@ -548,6 +592,9 @@ export function aggregateClaudeUsage(turns: ClaudeUsageAttributedTurn[]): {
       location.outputTokens += turn.outputTokens
       location.cacheReadTokens += turn.cacheReadTokens
       location.cacheWriteTokens += turn.cacheWriteTokens
+      if (turn.credits !== undefined) {
+        location.credits = (location.credits ?? 0) + turn.credits
+      }
     } else {
       session.locationBreakdown.push({
         locationKey: turn.projectKey,
@@ -558,7 +605,8 @@ export function aggregateClaudeUsage(turns: ClaudeUsageAttributedTurn[]): {
         inputTokens: turn.inputTokens,
         outputTokens: turn.outputTokens,
         cacheReadTokens: turn.cacheReadTokens,
-        cacheWriteTokens: turn.cacheWriteTokens
+        cacheWriteTokens: turn.cacheWriteTokens,
+        ...(turn.credits !== undefined ? { credits: turn.credits } : {})
       })
     }
 
@@ -573,6 +621,9 @@ export function aggregateClaudeUsage(turns: ClaudeUsageAttributedTurn[]): {
       existingDaily.outputTokens += turn.outputTokens
       existingDaily.cacheReadTokens += turn.cacheReadTokens
       existingDaily.cacheWriteTokens += turn.cacheWriteTokens
+      if (turn.credits !== undefined) {
+        existingDaily.credits = (existingDaily.credits ?? 0) + turn.credits
+      }
     } else {
       dailyByKey.set(dailyKey, {
         day: turn.day,
@@ -586,7 +637,8 @@ export function aggregateClaudeUsage(turns: ClaudeUsageAttributedTurn[]): {
         inputTokens: turn.inputTokens,
         outputTokens: turn.outputTokens,
         cacheReadTokens: turn.cacheReadTokens,
-        cacheWriteTokens: turn.cacheWriteTokens
+        cacheWriteTokens: turn.cacheWriteTokens,
+        ...(turn.credits !== undefined ? { credits: turn.credits } : {})
       })
     }
   }
@@ -603,13 +655,14 @@ export function aggregateClaudeUsage(turns: ClaudeUsageAttributedTurn[]): {
 
 export async function scanClaudeUsageFiles(
   worktrees: ClaudeUsageWorktreeRef[],
-  previousProcessedFiles: ClaudeUsagePersistedFile[] = []
+  previousProcessedFiles: ClaudeUsagePersistedFile[] = [],
+  options: ClaudeUsageScanOptions = {}
 ): Promise<{
   processedFiles: ClaudeUsagePersistedFile[]
   sessions: ClaudeUsageSession[]
   dailyAggregates: ClaudeUsageDailyAggregate[]
 }> {
-  const files = await listClaudeTranscriptFiles()
+  const files = await listClaudeTranscriptFiles(options.roots)
   const previousByPath = new Map(previousProcessedFiles.map((file) => [file.path, file]))
   const worktreeLookup = await buildWorktreeLookup(worktrees)
 
@@ -681,7 +734,9 @@ export async function scanClaudeUsageFiles(
     const batch = pathsToParse.slice(index, index + FILE_SCAN_BATCH_SIZE)
     // Why: transcript scans run in Electron's main process. Small parallel
     // batches cut independent file I/O without letting Settings stay blocked.
-    const reads = await Promise.all(batch.map((filePath) => readClaudeUsageScanFile(filePath)))
+    const reads = await Promise.all(
+      batch.map((filePath) => readClaudeUsageScanFile(filePath, options.acceptZeroTokenTurns))
+    )
     for (const [batchIndex, filePath] of batch.entries()) {
       const { processedFile, turns } = reads[batchIndex]
       // Why: ownership claims must be sequential in sorted-path order so
