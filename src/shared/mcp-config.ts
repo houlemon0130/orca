@@ -7,7 +7,7 @@ import { summarizeMcpServer } from './mcp-server-inspection'
 
 export { maskMcpEnv } from './mcp-server-inspection'
 
-export type McpConfigFormat = 'workspace' | 'cursor' | 'claude'
+export type McpConfigFormat = 'workspace' | 'cursor' | 'claude' | 'qodercli'
 
 export type McpConfigCandidate = {
   format: McpConfigFormat
@@ -65,6 +65,12 @@ export const MCP_CONFIG_CANDIDATES: McpConfigCandidate[] = [
     format: 'claude',
     label: 'Claude workspace',
     relativePath: '.claude/mcp.json',
+    serversPath: ['mcpServers']
+  },
+  {
+    format: 'qodercli',
+    label: 'Qoder CLI',
+    relativePath: '.qoder.json',
     serversPath: ['mcpServers']
   }
 ]

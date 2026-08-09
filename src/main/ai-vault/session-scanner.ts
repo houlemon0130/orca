@@ -1,4 +1,5 @@
 import { readFile } from 'node:fs/promises'
+import { delimiter } from 'node:path'
 import type {
   AiVaultListResult,
   AiVaultScanIssue,
@@ -190,32 +191,37 @@ async function scanInScopeSessions(args: {
   if (args.scopePaths.length === 0) {
     return []
   }
-  const claudeRootDirs = args.discoveries
-    .filter((discovery) => discovery.agent === 'claude')
-    .map((discovery) => discovery.rootDir)
-  const files = await discoverInScopeClaudeFiles({
-    rootDirs: claudeRootDirs,
-    scopePaths: args.scopePaths,
-    limit: args.limit,
-    excludedFilePaths: args.alreadyParsedFilePaths,
-    issues: args.issues
-  })
-  const candidates = files.map(
-    (file): SessionFileCandidate => ({ agent: 'claude', file, codexHome: null })
-  )
-  if (candidates.length === 0) {
-    return []
+  const sessions: AiVaultSession[] = []
+  // qodercli shares Claude's cwd-slug project-dir layout, so the same scoped
+  // discovery guarantees its in-scope sessions past the recency cap.
+  for (const agent of ['claude', 'qodercli'] as const) {
+    const files = await discoverInScopeClaudeFiles({
+      agent,
+      // Why: merged discoveries (qodercli's alternate roots) join their roots
+      // with the path delimiter; the scope walk needs each real dir.
+      rootDirs: args.discoveries
+        .filter((discovery) => discovery.agent === agent)
+        .flatMap((discovery) => discovery.rootDir.split(delimiter)),
+      scopePaths: args.scopePaths,
+      limit: args.limit,
+      excludedFilePaths: args.alreadyParsedFilePaths,
+      issues: args.issues
+    })
+    const candidates = files.map((file) => ({ agent, file, codexHome: null }))
+    // Parse every in-scope candidate (limit === candidate count never early-stops).
+    sessions.push(
+      ...(await parseSessionCandidates({
+        candidates,
+        limit: candidates.length,
+        platform: args.platform,
+        executionHostId: args.executionHostId,
+        issues: args.issues,
+        parseStats: args.parseStats,
+        signal: args.signal
+      }))
+    )
   }
-  // Parse every in-scope candidate (limit === candidate count never early-stops).
-  return parseSessionCandidates({
-    candidates,
-    limit: candidates.length,
-    platform: args.platform,
-    executionHostId: args.executionHostId,
-    issues: args.issues,
-    parseStats: args.parseStats,
-    signal: args.signal
-  })
+  return sessions
 }
 
 async function parseSessionCandidates(args: {

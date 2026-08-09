@@ -9,7 +9,10 @@ import type {
   AiVaultSubagentRunStatus
 } from '../../shared/ai-vault-types'
 import { sessionIdFromFileName, sessionSortTime } from './session-scanner-accumulator'
-import { parseClaudeSessionFile } from './session-scanner-primary-parsers'
+import {
+  parseClaudeSessionFile,
+  type ClaudeTranscriptAgent
+} from './session-scanner-primary-parsers'
 import {
   isSubagentTranscriptFileName,
   subagentTranscriptsDirFor,
@@ -63,9 +66,12 @@ export async function listClaudeSubagentSessions(args: {
   parentFilePath: string
   platform?: NodeJS.Platform
   now?: number
+  // qodercli shares Claude's sibling subagents/ layout; only the row identity differs.
+  agent?: ClaudeTranscriptAgent
 }): Promise<AiVaultSubagentListResult> {
   const platform = args.platform ?? process.platform
   const now = args.now ?? Date.now()
+  const agent = args.agent ?? 'claude'
   const issues: AiVaultScanIssue[] = []
   const subagentsDir = subagentTranscriptsDirFor(args.parentFilePath)
 
@@ -96,6 +102,7 @@ export async function listClaudeSubagentSessions(args: {
       batch.map((name) =>
         parseSubagentTranscript({
           filePath: join(subagentsDir, name),
+          agent,
           agentId: subagentIdFromFileName(name),
           parentSessionId,
           statusByAgentId,
@@ -122,6 +129,7 @@ function subagentIdFromFileName(name: string): string {
 
 async function parseSubagentTranscript(args: {
   filePath: string
+  agent: ClaudeTranscriptAgent
   agentId: string
   parentSessionId: string
   statusByAgentId: ReadonlyMap<string, string>
@@ -137,7 +145,8 @@ async function parseSubagentTranscript(args: {
         mtimeMs: fileStat.mtimeMs,
         modifiedAt: fileStat.mtime.toISOString()
       },
-      args.platform
+      args.platform,
+      args.agent
     )
     if (!session) {
       return null
@@ -161,7 +170,7 @@ async function parseSubagentTranscript(args: {
       }
     }
   } catch (err) {
-    args.issues.push({ agent: 'claude', path: args.filePath, message: errorMessage(err) })
+    args.issues.push({ agent: args.agent, path: args.filePath, message: errorMessage(err) })
     return null
   }
 }

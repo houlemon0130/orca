@@ -3,6 +3,17 @@ import { describe, expect, it } from 'vitest'
 import { buildAiVaultResumeCommand } from './ai-vault-resume-command'
 
 describe('buildAiVaultResumeCommand', () => {
+  it('resumes Qoder CLI sessions with the shared --resume form', () => {
+    expect(
+      buildAiVaultResumeCommand({
+        agent: 'qodercli',
+        sessionId: 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee',
+        cwd: '/repo/app',
+        platform: 'darwin'
+      })
+    ).toBe("cd '/repo/app' && qodercli --resume 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee'")
+  })
+
   it('uses Antigravity conversation ids instead of Gemini resume flags', () => {
     expect(
       buildAiVaultResumeCommand({

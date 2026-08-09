@@ -4,6 +4,7 @@ import type { TuiAgent } from './types'
 
 export const RESUMABLE_TUI_AGENTS = [
   'claude',
+  'qodercli',
   'codex',
   'gemini',
   'antigravity',
@@ -187,6 +188,7 @@ export function extractAgentProviderSession(
     // since recent Claude Code names the transcript file with a UUID that differs
     // from the hook session_id (so the id-based glob no longer finds it).
     case 'claude':
+    case 'qodercli':
     case 'codex': {
       const id = readSessionId(payload, ['session_id'])
       return id ? withTranscriptPath({ key: 'session_id', id }, payload) : null
@@ -246,6 +248,10 @@ export function getAgentResumeArgv(
   switch (agent) {
     case 'claude':
       return providerSession.key === 'session_id' ? ['claude', '--resume', id] : null
+    // Why the global binary only: the CN build ships as `qoderclicn`, but Orca
+    // models both builds as one agent whose launch command is `qodercli`.
+    case 'qodercli':
+      return providerSession.key === 'session_id' ? ['qodercli', '--resume', id] : null
     case 'codex':
       return providerSession.key === 'session_id' ? ['codex', 'resume', id] : null
     case 'gemini':

@@ -49,7 +49,10 @@ function resumableStateFactoryFor(
 ): (() => ResumableSessionParseState) | null {
   switch (candidate.agent) {
     case 'claude':
-      return () => createClaudeSessionResumeState(candidate.file)
+    case 'qodercli': {
+      const agent = candidate.agent
+      return () => createClaudeSessionResumeState(candidate.file, agent)
+    }
     case 'codex':
       return () => createCodexSessionResumeState(candidate.file, candidate.codexHome)
     case 'cursor':
@@ -193,7 +196,7 @@ export async function parseAgentSessionFileCached(
     // cheap directory count on reuse.
     if (entry.session && entry.session.messageCount === 0) {
       const subagentTranscriptCount =
-        candidate.agent === 'claude'
+        candidate.agent === 'claude' || candidate.agent === 'qodercli'
           ? await countSubagentTranscripts(file.path)
           : candidate.agent === 'omp'
             ? await countOmpSubagentTranscripts(file.path)

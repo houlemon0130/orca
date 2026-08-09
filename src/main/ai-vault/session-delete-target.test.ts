@@ -15,6 +15,8 @@ const PI_ROOT = join(HOME, '.pi', 'agent', 'sessions')
 const OMP_ROOT = join(HOME, '.omp', 'agent', 'sessions')
 const CLAUDE_ROOT = join(HOME, '.claude', 'projects')
 const CLAUDE_SESSION_ENV_ROOT = join(HOME, '.claude', 'session-env')
+const QODER_ROOT = join(HOME, '.qoder', 'projects')
+const QODER_CN_ROOT = join(HOME, '.qoder-cn', 'projects')
 const ROVO_ROOT = join(HOME, '.rovodev', 'sessions')
 const GROK_ROOT = join(HOME, '.grok', 'sessions')
 
@@ -380,6 +382,65 @@ describe('directory-shaped agents', () => {
     expect(result).toEqual({
       allowed: false,
       agent: 'claude',
+      reason: 'undiscoverable-path'
+    })
+  })
+
+  it('plans qodercli companions like claude, paired with the matched install root', () => {
+    const filePath = join(QODER_ROOT, '-proj', 'sess-1.jsonl')
+    const result = validateAiVaultSessionDeleteTarget({
+      agent: 'qodercli',
+      filePath,
+      executionHostId: 'local',
+      rootOptions: { qoderProjectsDirs: [QODER_ROOT, QODER_CN_ROOT] }
+    })
+
+    expect(result).toEqual({
+      allowed: true,
+      agent: 'qodercli',
+      resolvedPath: filePath,
+      removals: [
+        {
+          path: join(QODER_ROOT, '-proj', 'sess-1'),
+          kind: 'directory',
+          roots: [QODER_ROOT, QODER_CN_ROOT]
+        },
+        {
+          path: join(HOME, '.qoder', 'session-env', 'sess-1'),
+          kind: 'directory',
+          roots: [join(HOME, '.qoder', 'session-env')]
+        },
+        { path: filePath, kind: 'file', roots: [QODER_ROOT, QODER_CN_ROOT] }
+      ]
+    })
+  })
+
+  it("pairs a CN-root qodercli session with the CN build's session-env", () => {
+    const result = validateAiVaultSessionDeleteTarget({
+      agent: 'qodercli',
+      filePath: join(QODER_CN_ROOT, '-proj', 'sess-2.jsonl'),
+      executionHostId: 'local',
+      rootOptions: { qoderProjectsDirs: [QODER_ROOT, QODER_CN_ROOT] }
+    })
+
+    expect(result.allowed && result.removals[1]).toEqual({
+      path: join(HOME, '.qoder-cn', 'session-env', 'sess-2'),
+      kind: 'directory',
+      roots: [join(HOME, '.qoder-cn', 'session-env')]
+    })
+  })
+
+  it('rejects a qodercli Task subagent transcript like a claude one', () => {
+    const result = validateAiVaultSessionDeleteTarget({
+      agent: 'qodercli',
+      filePath: join(QODER_ROOT, '-proj', 'sess-1', 'subagents', 'agent-abc.jsonl'),
+      executionHostId: 'local',
+      rootOptions: { qoderProjectsDirs: [QODER_ROOT, QODER_CN_ROOT] }
+    })
+
+    expect(result).toEqual({
+      allowed: false,
+      agent: 'qodercli',
       reason: 'undiscoverable-path'
     })
   })

@@ -384,6 +384,65 @@ describe('scanRemoteAiVaultSessions', () => {
     ])
   })
 
+  it('parses Qoder CLI transcripts from both remote install roots', async () => {
+    const provider = new MemoryRemoteProvider()
+    provider.addFile(
+      '/home/ada/.qoder/projects/repo/qodercli-session.jsonl',
+      jsonLines([
+        {
+          sessionId: 'qodercli-session',
+          timestamp: '2026-07-04T05:00:00.000Z',
+          type: 'user',
+          cwd: '/home/ada/repo',
+          message: { content: [{ type: 'text', text: 'Wire up the remote vault' }] }
+        }
+      ]),
+      70
+    )
+    // Sibling subagent transcripts are pruned from the top-level list but
+    // still counted, mirroring the claude source.
+    provider.addFile(
+      '/home/ada/.qoder/projects/repo/qodercli-session/subagents/agent-abc.jsonl',
+      jsonLines([{ type: 'user', message: { role: 'user', content: 'Subtask' } }]),
+      71
+    )
+    provider.addFile(
+      '/home/ada/.qoder-cn/projects/repo/cn-session.jsonl',
+      jsonLines([
+        {
+          sessionId: 'cn-session',
+          timestamp: '2026-07-04T06:00:00.000Z',
+          type: 'user',
+          message: { content: [{ type: 'text', text: 'CN build session' }] }
+        }
+      ]),
+      72
+    )
+
+    const result = await scanRemoteAiVaultSessions({
+      provider,
+      executionHostId: 'ssh:dev-box',
+      remoteHome: '/home/ada',
+      hostPlatform: getRemoteHostPlatform('linux-x64')
+    })
+
+    expect(result.issues).toEqual([])
+    expect(result.sessions).toHaveLength(2)
+    expect(result.sessions.every((session) => session.agent === 'qodercli')).toBe(true)
+    expect(
+      result.sessions.find((session) => session.sessionId === 'qodercli-session')
+    ).toMatchObject({
+      executionHostId: 'ssh:dev-box',
+      title: 'Wire up the remote vault',
+      subagentTranscriptCount: 1,
+      filePath: '/home/ada/.qoder/projects/repo/qodercli-session.jsonl',
+      resumeCommand: "cd '/home/ada/repo' && qodercli --resume 'qodercli-session'"
+    })
+    expect(result.sessions.find((session) => session.sessionId === 'cn-session')).toMatchObject({
+      filePath: '/home/ada/.qoder-cn/projects/repo/cn-session.jsonl'
+    })
+  })
+
   it('counts remote sibling subagent transcripts for zero-turn Claude sessions', async () => {
     const provider = new MemoryRemoteProvider()
     provider.addFile(

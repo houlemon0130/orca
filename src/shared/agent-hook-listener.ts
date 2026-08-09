@@ -398,13 +398,21 @@ export function resolveCachedClaudeCompactOwnership(
   previous: AgentHookEventPayload | undefined,
   incoming: AgentHookEventPayload
 ): AgentHookEventPayload {
+  // Why: qodercli shares Claude's compact lifecycle; ownership just has to stay
+  // within one identity (a claude row never owns a qodercli compact or vice versa).
+  const claudeFamilySource =
+    incoming.source === 'claude' || incoming.source === 'qodercli' ? incoming.source : null
   const sameClaudeOwner =
-    previous?.source === 'claude' &&
-    previous.payload.agentType === 'claude' &&
-    incoming.source === 'claude' &&
-    incoming.payload.agentType === 'claude' &&
+    claudeFamilySource !== null &&
+    previous?.source === claudeFamilySource &&
+    previous.payload.agentType === claudeFamilySource &&
+    incoming.payload.agentType === claudeFamilySource &&
     incoming.connectionId === previous.connectionId &&
-    agentProviderSessionsEqual('claude', previous.providerSession, incoming.providerSession)
+    agentProviderSessionsEqual(
+      claudeFamilySource,
+      previous.providerSession,
+      incoming.providerSession
+    )
       ? previous
       : undefined
   if (incoming.hookEventName === 'PreCompact' && incoming.compactTrigger) {
@@ -2405,6 +2413,9 @@ function isNewTurnEvent(source: AgentHookSource, eventName: unknown): boolean {
   // Why: exhaustive switch so a new AgentHookSource fails typecheck here instead of falling through to false.
   switch (source) {
     case 'claude':
+    // Why: qodercli forked Claude Code and emits its hook event set verbatim.
+    // falls through
+    case 'qodercli':
       // Why: SessionStart lands an idle row (STA-3386) and must also drop stale
       // tool/prompt caches left by the pane's previous session.
       return eventName === 'SessionStart' || eventName === 'UserPromptSubmit'
@@ -2504,6 +2515,9 @@ function extractToolFields(
     // Why: Kimi Code uses Claude's tool_name/tool_input payload fields verbatim.
     // falls through
     case 'kimi':
+    // Why: qodercli forked Claude Code and keeps the same tool payload fields.
+    // falls through
+    case 'qodercli':
       return extractClaudeToolFields(eventName, hookPayload)
     case 'codex':
       return extractCodexToolFields(eventName, hookPayload)
@@ -2579,11 +2593,21 @@ function resolveClaudePaneState(
 }
 
 /** SubagentStart/Stop/TeammateIdle update the roster and re-emit the lead's last known state with the fresh child list, so the sidebar reflects spawn/finish even when a background child outlives the lead turn with no other hook traffic. */
+// Why: qodercli forked Claude Code and shares its entire hook lifecycle; the
+// normalizers below are parameterized on this identity so payloads stamp the
+// real agent instead of masquerading as Claude.
+export type ClaudeFamilyAgentType = 'claude' | 'qodercli'
+
+export function isClaudeFamilyAgentType(value: unknown): value is ClaudeFamilyAgentType {
+  return value === 'claude' || value === 'qodercli'
+}
+
 function normalizeClaudeSubagentLifecycleEvent(
   state: HookListenerState,
   eventName: 'SubagentStart' | 'SubagentStop' | 'TeammateIdle',
   paneKey: string,
-  hookPayload: Record<string, unknown>
+  hookPayload: Record<string, unknown>,
+  agentType: ClaudeFamilyAgentType
 ): ParsedAgentStatusPayload | null {
   const lifecycleField = eventName === 'TeammateIdle' ? 'teammate_name' : 'agent_id'
   const lifecycleId = readString(hookPayload, lifecycleField)
@@ -2614,7 +2638,7 @@ function normalizeClaudeSubagentLifecycleEvent(
       clearClaudePendingWaitForAgent(state, paneKey, (waitingAgentId) => waitingAgentId === agentId)
     }
   }
-  return buildClaudeChildDrivenStatusPayload(state, eventName, paneKey, hookPayload)
+  return buildClaudeChildDrivenStatusPayload(state, eventName, paneKey, hookPayload, agentType)
 }
 
 /** Sync the Claude lead-turn record when the SERVER infers an interrupt outside the hook stream (Ctrl+C with a missed Stop); else a later child lifecycle event resurrects the cancelled pane. */
@@ -2711,7 +2735,8 @@ function buildClaudeChildDrivenStatusPayload(
   state: HookListenerState,
   eventName: unknown,
   paneKey: string,
-  hookPayload: Record<string, unknown>
+  hookPayload: Record<string, unknown>,
+  agentType: ClaudeFamilyAgentType
 ): ParsedAgentStatusPayload | null {
   // Why: default 'working' — a spawn proves activity even before the lead's first state-bearing event (e.g. Orca restarted mid-session).
   const lead = state.claudeLeadStateByPaneKey.get(paneKey)
@@ -2722,7 +2747,8 @@ function buildClaudeChildDrivenStatusPayload(
       interrupted: lead?.interrupted
     }),
     updateToolSnapshot: false,
-    interrupted: lead?.interrupted
+    interrupted: lead?.interrupted,
+    agentType
   })
 }
 
@@ -2731,7 +2757,8 @@ function normalizeClaudeEvent(
   eventName: unknown,
   promptText: string,
   paneKey: string,
-  hookPayload: Record<string, unknown>
+  hookPayload: Record<string, unknown>,
+  agentType: ClaudeFamilyAgentType = 'claude'
 ): ParsedAgentStatusPayload | null {
   const eventAgentId = readString(hookPayload, 'agent_id')
   if (
@@ -2739,7 +2766,7 @@ function normalizeClaudeEvent(
     eventName === 'SubagentStop' ||
     eventName === 'TeammateIdle'
   ) {
-    return normalizeClaudeSubagentLifecycleEvent(state, eventName, paneKey, hookPayload)
+    return normalizeClaudeSubagentLifecycleEvent(state, eventName, paneKey, hookPayload, agentType)
   }
   if (eventName === 'SessionStart') {
     // Why: SessionStart is the only signal a resumed session emits before its first prompt
@@ -2767,7 +2794,8 @@ function normalizeClaudeEvent(
     return buildClaudeStatusPayload(state, eventName, promptText, paneKey, hookPayload, {
       stateName: 'done',
       updateToolSnapshot: true,
-      sessionBoundary: true
+      sessionBoundary: true,
+      agentType
     })
   }
   const previousLead = state.claudeLeadStateByPaneKey.get(paneKey)
@@ -2851,7 +2879,7 @@ function normalizeClaudeEvent(
   if (subagentOriginId) {
     const lead = state.claudeLeadStateByPaneKey.get(paneKey)
     if (lead?.state !== 'waiting' || lead.waitingAgentId !== subagentOriginId) {
-      return buildClaudeChildDrivenStatusPayload(state, eventName, paneKey, hookPayload)
+      return buildClaudeChildDrivenStatusPayload(state, eventName, paneKey, hookPayload, agentType)
     }
     // Why: approval granted — update the tool snapshot (drop the pending card) as the lead's own next tool event would.
     // Restore the stashed lead state, not this child's 'working': the lead may already be done, and the done-gate never upgrades working back to done once the roster drains.
@@ -2860,13 +2888,14 @@ function normalizeClaudeEvent(
     return buildClaudeStatusPayload(state, eventName, promptText, paneKey, hookPayload, {
       stateName: resolveClaudePaneState(state, paneKey, restored),
       updateToolSnapshot: true,
-      interrupted: restored.interrupted
+      interrupted: restored.interrupted,
+      agentType
     })
   }
 
   // Why: lead events never carry agent_id; even a child missed by lifecycle tracking cannot own the lead turn or its background-work evidence.
   if (eventAgentId && !isWaitingInducing) {
-    return buildClaudeChildDrivenStatusPayload(state, eventName, paneKey, hookPayload)
+    return buildClaudeChildDrivenStatusPayload(state, eventName, paneKey, hookPayload, agentType)
   }
 
   if (isTurnBoundary && eventAgentId === undefined) {
@@ -2911,7 +2940,8 @@ function normalizeClaudeEvent(
   return buildClaudeStatusPayload(state, eventName, promptText, paneKey, hookPayload, {
     stateName: effectiveState,
     updateToolSnapshot: true,
-    interrupted
+    interrupted,
+    agentType
   })
 }
 
@@ -2926,6 +2956,7 @@ function buildClaudeStatusPayload(
     updateToolSnapshot: boolean
     interrupted?: boolean
     sessionBoundary?: boolean
+    agentType?: ClaudeFamilyAgentType
   }
 ): ParsedAgentStatusPayload | null {
   // Why: child-driven refreshes are roster bookkeeping, not lead tool activity; read the cached snapshot without merging so they can't clear a live AskUserQuestion card or clobber the tool preview.
@@ -2943,7 +2974,7 @@ function buildClaudeStatusPayload(
     prompt: resolvePrompt(state, paneKey, promptText, {
       resetOnNewTurn: options.updateToolSnapshot && isNewTurnEvent('claude', eventName)
     }),
-    agentType: 'claude',
+    agentType: options.agentType ?? 'claude',
     toolName: snapshot.toolName,
     toolInput: snapshot.toolInput,
     interactivePrompt: snapshot.interactivePrompt,
@@ -4156,9 +4187,11 @@ export function normalizeHookPayload(
       ? null
       : extractAgentProviderSession(source, hookPayloadRecord)
   const providerPromptId =
-    source === 'claude' ? normalizeClaudePromptId(hookPayloadRecord.prompt_id) : undefined
+    source === 'claude' || source === 'qodercli'
+      ? normalizeClaudePromptId(hookPayloadRecord.prompt_id)
+      : undefined
   const compactTrigger =
-    source === 'claude' &&
+    (source === 'claude' || source === 'qodercli') &&
     (eventName === 'PreCompact' || eventName === 'PostCompact') &&
     (hookPayloadRecord.trigger === 'manual' || hookPayloadRecord.trigger === 'auto')
       ? hookPayloadRecord.trigger
@@ -4205,6 +4238,16 @@ export function normalizeHookPayload(
   switch (source) {
     case 'claude':
       payload = normalizeClaudeEvent(state, eventName, promptText, paneKey, hookPayloadRecord)
+      break
+    case 'qodercli':
+      payload = normalizeClaudeEvent(
+        state,
+        eventName,
+        promptText,
+        paneKey,
+        hookPayloadRecord,
+        'qodercli'
+      )
       break
     case 'codex':
       payload = normalizeCodexEvent(state, eventName, promptText, paneKey, hookPayloadRecord)
@@ -4352,7 +4395,7 @@ export function normalizeHookPayload(
         toolUseId: readFirstString(hookPayloadRecord, ['tool_use_id', 'toolUseId']),
         toolAgentId: readFirstString(hookPayloadRecord, ['agent_id', 'agentId']),
         toolAgentType: readString(hookPayloadRecord, 'agent_type'),
-        ...(source === 'claude'
+        ...(source === 'claude' || source === 'qodercli'
           ? {
               claudeRunningNonAgentTask:
                 state.claudeRunningNonAgentTaskPaneKeys.has(paneKey) ||
@@ -4370,6 +4413,7 @@ export function normalizeHookPayload(
 
 export const HOOK_SOURCE_BY_PATHNAME: Readonly<Record<string, AgentHookSource>> = Object.freeze({
   '/hook/claude': 'claude',
+  '/hook/qodercli': 'qodercli',
   '/hook/codex': 'codex',
   '/hook/gemini': 'gemini',
   '/hook/antigravity': 'antigravity',

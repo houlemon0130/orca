@@ -17,6 +17,7 @@ afterEach(async () => {
 function scopedScanOptions(claudeProjectsDir: string, extra: Partial<AiVaultScanOptions>) {
   return {
     claudeProjectsDir,
+    qoderProjectsDirs: ['/nonexistent/qoder', '/nonexistent/qoder-cn'],
     codexSessionsDir: '/nonexistent/codex',
     geminiSessionsDir: '/nonexistent/gemini',
     antigravityBrainDir: '/nonexistent/antigravity',

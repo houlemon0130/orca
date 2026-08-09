@@ -63,6 +63,8 @@ export async function discoverInScopeClaudeFiles(args: {
   limit: number
   excludedFilePaths: ReadonlySet<string>
   issues: AiVaultScanIssue[]
+  // qodercli shares the cwd-slug project-dir layout; only issue attribution differs.
+  agent?: 'claude' | 'qodercli'
 }): Promise<FileWithMtime[]> {
   if (args.scopePaths.length === 0 || args.limit <= 0) {
     return []
@@ -80,7 +82,8 @@ export async function discoverInScopeClaudeFiles(args: {
         issues: args.issues,
         collected,
         limit: args.limit,
-        excludedFilePaths: args.excludedFilePaths
+        excludedFilePaths: args.excludedFilePaths,
+        agent: args.agent ?? 'claude'
       })
     }
   }
@@ -231,6 +234,7 @@ async function collectClaudeFiles(args: {
   collected: Map<string, FileWithMtime>
   limit: number
   excludedFilePaths: ReadonlySet<string>
+  agent: 'claude' | 'qodercli'
 }): Promise<void> {
   let entries
   try {
@@ -255,7 +259,7 @@ async function collectClaudeFiles(args: {
         sizeBytes: fileStat.size
       })
     } catch (err) {
-      args.issues.push({ agent: 'claude', path, message: errorMessage(err) })
+      args.issues.push({ agent: args.agent, path, message: errorMessage(err) })
     }
   }
 }

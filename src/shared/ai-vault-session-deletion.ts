@@ -39,6 +39,7 @@ export const AI_VAULT_DELETABLE_AGENTS = [
   'pi',
   'omp',
   'claude',
+  'qodercli',
   'rovo',
   'grok'
 ] as const satisfies readonly AiVaultAgent[]

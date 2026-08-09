@@ -2,7 +2,11 @@ import { resolve } from 'node:path'
 import { getAiVaultWslHomeDirs } from '../ai-vault/cached-session-list'
 import { listClaudeSubagentSessions } from '../ai-vault/session-scanner-claude-subagents'
 import { listOmpSubagentSessions } from '../ai-vault/session-scanner-omp-subagent-listing'
-import { claudeProjectsRootDirs, ompSessionsRootDirs } from '../ai-vault/session-scanner-roots'
+import {
+  claudeProjectsRootDirs,
+  ompSessionsRootDirs,
+  qoderProjectsRootDirs
+} from '../ai-vault/session-scanner-roots'
 import { isPathInsideOrEqual } from '../../shared/cross-platform-path'
 import { LOCAL_EXECUTION_HOST_ID } from '../../shared/execution-host'
 import type {
@@ -10,8 +14,9 @@ import type {
   AiVaultSubagentListResult
 } from '../../shared/ai-vault-types'
 
-// Provider-gated: only Claude and OMP materialize Task subagent transcripts as
-// sibling files today; other agents resolve to an empty list.
+// Provider-gated: only Claude (and its qodercli fork) and OMP materialize Task
+// subagent transcripts as sibling files today; other agents resolve to an
+// empty list.
 export async function listAiVaultSubagentSessions(
   args?: AiVaultSubagentListArgs
 ): Promise<AiVaultSubagentListResult> {
@@ -19,7 +24,7 @@ export async function listAiVaultSubagentSessions(
   // every other rejected input instead of throwing.
   if (
     !args ||
-    (args.agent !== 'claude' && args.agent !== 'omp') ||
+    (args.agent !== 'claude' && args.agent !== 'qodercli' && args.agent !== 'omp') ||
     typeof args.parentFilePath !== 'string' ||
     !args.parentFilePath.trim()
   ) {
@@ -41,11 +46,13 @@ export async function listAiVaultSubagentSessions(
   const roots =
     args.agent === 'claude'
       ? claudeProjectsRootDirs({ wslHomeDirs })
-      : ompSessionsRootDirs({ wslHomeDirs })
+      : args.agent === 'qodercli'
+        ? qoderProjectsRootDirs({ wslHomeDirs })
+        : ompSessionsRootDirs({ wslHomeDirs })
   if (!roots.some((root) => isPathInsideOrEqual(resolve(root), parentFilePath))) {
     return { sessions: [], issues: [] }
   }
-  return args.agent === 'claude'
-    ? listClaudeSubagentSessions({ parentFilePath })
-    : listOmpSubagentSessions({ parentFilePath })
+  return args.agent === 'omp'
+    ? listOmpSubagentSessions({ parentFilePath })
+    : listClaudeSubagentSessions({ parentFilePath, agent: args.agent })
 }

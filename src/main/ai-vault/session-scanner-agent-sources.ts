@@ -6,7 +6,12 @@ import { resolveGrokSessionsDir } from '../../shared/grok-session-paths'
 import { uniqueCodexSessionsDirs } from './session-scanner-codex-paths'
 import { resolveKimiSessionsDir } from './session-scanner-kimi-paths'
 import { OMP_SESSION_ARTIFACT_DIR_PATTERN } from './session-scanner-omp-subagent-transcripts'
-import { claudeProjectsRootDirs, OMP_SESSIONS_DIR, sessionRootDirs } from './session-scanner-roots'
+import {
+  claudeProjectsRootDirs,
+  OMP_SESSIONS_DIR,
+  qoderProjectsRootDirs,
+  sessionRootDirs
+} from './session-scanner-roots'
 import { SUBAGENT_DIR_NAME } from './session-scanner-subagent-transcripts'
 import type { AiVaultScanOptions } from './session-scanner-types'
 import { normalizeAgentSessionsDir } from './session-scanner-values'
@@ -76,6 +81,16 @@ export const AI_VAULT_AGENT_SOURCES: AiVaultAgentSourceTable = {
     // parent as untitled rows; prune the subtree and read them on demand under
     // their parent instead.
     directoryPredicate: (name) => name !== SUBAGENT_DIR_NAME
+  },
+  // A Claude Code fork with a byte-compatible transcript store; the global and
+  // CN roots are alternate installs of one agent, so their discoveries merge
+  // and the per-agent limit spans them.
+  qodercli: {
+    rootDirs: (options, wslHomeDirs) =>
+      qoderProjectsRootDirs({ qoderProjectsDirs: options.qoderProjectsDirs, wslHomeDirs }),
+    extensions: ['.jsonl'],
+    directoryPredicate: (name) => name !== SUBAGENT_DIR_NAME,
+    mergeRootDiscoveries: true
   },
   codex: {
     rootDirs: (options, wslHomeDirs) =>

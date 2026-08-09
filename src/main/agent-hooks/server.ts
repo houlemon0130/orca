@@ -18,6 +18,7 @@ import {
   hasCodexTranscriptSubagents,
   hasPendingAgentResultText,
   HOOK_REQUEST_SLOWLORIS_MS,
+  isClaudeFamilyAgentType,
   markClaudeLeadTurnInterrupted,
   markCodexLeadTurnInterrupted,
   MAX_PANE_KEY_LEN,
@@ -223,7 +224,7 @@ function dropHydratedIdleClaudeSubagents(
   payload: ParsedAgentStatusPayload
 ): ParsedAgentStatusPayload {
   if (
-    payload.agentType !== 'claude' ||
+    !isClaudeFamilyAgentType(payload.agentType) ||
     !payload.subagents?.some((subagent) => subagent.state === 'idle')
   ) {
     return payload
@@ -311,10 +312,12 @@ function sanitizeHydratedEntry(
     return null
   }
   const source = isAgentHookSource(record.source) ? record.source : undefined
-  const providerPromptId =
-    source === 'claude' ? normalizeClaudePromptId(record.providerPromptId) : undefined
+  const providerPromptId = isClaudeFamilyAgentType(source)
+    ? normalizeClaudePromptId(record.providerPromptId)
+    : undefined
   const compactTrigger =
-    source === 'claude' && (record.compactTrigger === 'manual' || record.compactTrigger === 'auto')
+    isClaudeFamilyAgentType(source) &&
+    (record.compactTrigger === 'manual' || record.compactTrigger === 'auto')
       ? record.compactTrigger
       : undefined
   return {
@@ -448,7 +451,7 @@ function isToolProgressWorkingAfterInterrupt(next: AgentHookEventPayload): boole
   if (next.payload.state !== 'working') {
     return false
   }
-  if (next.payload.agentType !== 'claude') {
+  if (!isClaudeFamilyAgentType(next.payload.agentType)) {
     return false
   }
   // Why: a same-prompt retry is another UserPromptSubmit, while late post-Ctrl+C progress arrives as tool lifecycle work.
@@ -472,10 +475,10 @@ function shouldKeepClaudePermissionVisible(
     return false
   }
   if (
-    previous?.payload.agentType !== 'claude' ||
+    !isClaudeFamilyAgentType(previous?.payload.agentType) ||
     previous.payload.state !== 'waiting' ||
     previous.hookEventName !== 'PermissionRequest' ||
-    next.payload.agentType !== 'claude' ||
+    next.payload.agentType !== previous.payload.agentType ||
     next.payload.state !== 'working'
   ) {
     return false
@@ -545,12 +548,12 @@ function shouldInheritClaudeToolUseIdForPermission(
 ): boolean {
   if (
     previous?.restoredUnconfirmed ||
-    previous?.payload.agentType !== 'claude' ||
+    !isClaudeFamilyAgentType(previous?.payload.agentType) ||
     previous.payload.state !== 'working' ||
     previous.hookEventName !== 'PreToolUse' ||
     typeof previous.toolUseId !== 'string' ||
     previous.toolUseId.trim().length === 0 ||
-    next.payload.agentType !== 'claude' ||
+    next.payload.agentType !== previous.payload.agentType ||
     next.payload.state !== 'waiting' ||
     next.hookEventName !== 'PermissionRequest' ||
     next.toolUseId !== undefined
@@ -809,7 +812,7 @@ export class AgentHookServer {
       return false
     }
     const dismissesClaudeQuestion =
-      agentType === 'claude' &&
+      isClaudeFamilyAgentType(agentType) &&
       request.intent === 'plain-escape' &&
       payload.state === 'waiting' &&
       isAskUserQuestionTool(payload.toolName)
@@ -833,7 +836,7 @@ export class AgentHookServer {
     }
     // Why: Escape/Ctrl+C at Claude's idle prompt does not stop provider-owned shells or session crons.
     if (
-      agentType === 'claude' &&
+      isClaudeFamilyAgentType(agentType) &&
       (this.state.claudeRunningNonAgentTaskPaneKeys.has(existing.paneKey) ||
         this.state.claudeActiveSessionCronPaneKeys.has(existing.paneKey))
     ) {
@@ -841,7 +844,7 @@ export class AgentHookServer {
     }
 
     // Why: keep the Claude lead-turn record in sync, or a later child event re-emits the stale 'working' state and resurrects the cancelled pane.
-    if (agentType === 'claude') {
+    if (isClaudeFamilyAgentType(agentType)) {
       markClaudeLeadTurnInterrupted(this.state, existing.paneKey)
     }
     if (agentType === 'codex') {
@@ -889,7 +892,7 @@ export class AgentHookServer {
     const payload = existing.payload
     // Why: only Claude's interactive question clears on typed input — tool name (not hook event) discriminates; real permission waits stay sticky.
     if (
-      payload.agentType !== 'claude' ||
+      !isClaudeFamilyAgentType(payload.agentType) ||
       payload.state !== 'waiting' ||
       !isAskUserQuestionTool(payload.toolName)
     ) {
@@ -1739,7 +1742,7 @@ export class AgentHookServer {
   }
 
   private normalizeLocalHookPayload(source: AgentHookSource, body: unknown): NormalizedLocalHook {
-    if (source !== 'claude' || typeof body !== 'object' || body === null) {
+    if (!isClaudeFamilyAgentType(source) || typeof body !== 'object' || body === null) {
       return { event: normalizeHookPayload(this.state, source, body, this.env) }
     }
     const rawPaneKey = (body as Record<string, unknown>).paneKey
@@ -1936,10 +1939,11 @@ export class AgentHookServer {
         ? envelope.hookEventName.trim()
         : undefined
     const source = isAgentHookSource(envelope.source) ? envelope.source : undefined
-    const providerPromptId =
-      source === 'claude' ? normalizeClaudePromptId(envelope.providerPromptId) : undefined
+    const providerPromptId = isClaudeFamilyAgentType(source)
+      ? normalizeClaudePromptId(envelope.providerPromptId)
+      : undefined
     const compactTrigger =
-      source === 'claude' &&
+      isClaudeFamilyAgentType(source) &&
       (envelope.compactTrigger === 'manual' || envelope.compactTrigger === 'auto')
         ? envelope.compactTrigger
         : undefined
@@ -1986,7 +1990,7 @@ export class AgentHookServer {
     const previousStatus = this.state.lastStatusByPaneKey.get(paneKey)
     if (hookEventName === 'PreCompact' || hookEventName === 'PostCompact') {
       if (
-        source !== 'claude' ||
+        !isClaudeFamilyAgentType(source) ||
         compactTrigger === undefined ||
         normalizedPayload.agentType !== source
       ) {
@@ -2015,7 +2019,7 @@ export class AgentHookServer {
       }
     }
     if (
-      source === 'claude' &&
+      isClaudeFamilyAgentType(source) &&
       compactTrigger !== undefined &&
       normalizedPayload.prompt.length === 0 &&
       previousStatus?.payload.prompt
@@ -2029,7 +2033,7 @@ export class AgentHookServer {
       return
     }
     const applyClaudeBackgroundWork =
-      normalizedPayload.agentType === 'claude' &&
+      isClaudeFamilyAgentType(normalizedPayload.agentType) &&
       typeof envelope.claudeRunningNonAgentTask === 'boolean' &&
       // Why: reconnect replay may seed a restarted listener, but cannot override any observation made by this runtime.
       (envelope.isReplay !== true || !this.runtimeObservedStatusPaneKeys.has(paneKey))
@@ -2285,7 +2289,7 @@ export class AgentHookServer {
           // Why: a replacement remote process may reuse the pane; don't merge it with the lost connection's children.
           this.state.codexSubagentRosterByPaneKey.delete(paneKey)
           this.state.codexLeadStateByPaneKey.delete(paneKey)
-        } else if (deleted.payload.agentType === 'claude') {
+        } else if (isClaudeFamilyAgentType(deleted.payload.agentType)) {
           this.state.claudeSubagentRosterByPaneKey.delete(paneKey)
           this.state.claudeLeadStateByPaneKey.delete(paneKey)
           this.state.claudeRunningNonAgentTaskPaneKeys.delete(paneKey)
@@ -2470,7 +2474,7 @@ export class AgentHookServer {
     for (const [paneKey, entry] of this.state.lastStatusByPaneKey) {
       const enriched = entry as EnrichedAgentHookEventPayload
       if (
-        enriched.payload.agentType === 'claude' &&
+        isClaudeFamilyAgentType(enriched.payload.agentType) &&
         enriched.connectionId === null &&
         isLocalExecutionHost(enriched.worktreeId) &&
         claudeRosterHasRestoredSnapshotSubagent(
@@ -2674,7 +2678,7 @@ export class AgentHookServer {
         // Why: restore live child hierarchy immediately; provider-specific reconciliation reaps stale seeds.
         if (entry.payload.agentType === 'codex') {
           seedCodexStateFromSnapshot(this.state, resolvedPaneKey, entry.payload)
-        } else if (entry.payload.agentType === 'claude' && entry.payload.subagents) {
+        } else if (isClaudeFamilyAgentType(entry.payload.agentType) && entry.payload.subagents) {
           seedClaudeSubagentRosterFromSnapshots(
             this.state,
             resolvedPaneKey,

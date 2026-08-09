@@ -7,7 +7,8 @@ import { scanAiVaultSessions } from './session-scanner'
 import {
   isolatedScanRoots,
   jsonLines,
-  writeAntigravityScannerFixture
+  writeAntigravityScannerFixture,
+  writeJsonlFile
 } from './session-scanner-test-fixtures'
 
 let tempRoots: string[] = []
@@ -25,45 +26,41 @@ describe('scanAiVaultSessions', () => {
     const roots = isolatedScanRoots(root)
     const claudeRoot = roots.claudeProjectsDir
     const codexRoot = roots.codexSessionsDir
-    await mkdir(join(claudeRoot, 'project'), { recursive: true })
     await mkdir(join(codexRoot, '2026', '05', '01'), { recursive: true })
 
-    await writeFile(
-      join(claudeRoot, 'project', 'claude-session.jsonl'),
-      [
-        JSON.stringify({
-          type: 'user',
-          sessionId: 'claude-session',
-          timestamp: '2026-05-01T10:00:00.000Z',
-          cwd: '/repo/app',
-          gitBranch: 'feature/vault',
-          isMeta: false,
-          message: { role: 'user', content: 'Implement the vault panel' }
-        }),
-        JSON.stringify({
-          type: 'assistant',
-          sessionId: 'claude-session',
-          timestamp: '2026-05-01T10:02:00.000Z',
-          cwd: '/repo/app',
-          gitBranch: 'feature/vault',
-          message: {
-            model: 'claude-sonnet-4-5',
-            usage: {
-              input_tokens: 100,
-              output_tokens: 40,
-              cache_read_input_tokens: 10,
-              cache_creation_input_tokens: 5
-            }
+    await writeJsonlFile(join(claudeRoot, 'project', 'claude-session.jsonl'), [
+      {
+        type: 'user',
+        sessionId: 'claude-session',
+        timestamp: '2026-05-01T10:00:00.000Z',
+        cwd: '/repo/app',
+        gitBranch: 'feature/vault',
+        isMeta: false,
+        message: { role: 'user', content: 'Implement the vault panel' }
+      },
+      {
+        type: 'assistant',
+        sessionId: 'claude-session',
+        timestamp: '2026-05-01T10:02:00.000Z',
+        cwd: '/repo/app',
+        gitBranch: 'feature/vault',
+        message: {
+          model: 'claude-sonnet-4-5',
+          usage: {
+            input_tokens: 100,
+            output_tokens: 40,
+            cache_read_input_tokens: 10,
+            cache_creation_input_tokens: 5
           }
-        }),
-        JSON.stringify({
-          type: 'custom-title',
-          sessionId: 'claude-session',
-          timestamp: '2026-05-01T10:03:00.000Z',
-          customTitle: 'Vault polish pass'
-        })
-      ].join('\n')
-    )
+        }
+      },
+      {
+        type: 'custom-title',
+        sessionId: 'claude-session',
+        timestamp: '2026-05-01T10:03:00.000Z',
+        customTitle: 'Vault polish pass'
+      }
+    ])
 
     await writeFile(
       join(
@@ -373,19 +370,25 @@ describe('scanAiVaultSessions', () => {
     tempRoots.push(root)
     const roots = isolatedScanRoots(root)
 
-    await mkdir(join(roots.claudeProjectsDir, 'project'), { recursive: true })
-    await writeFile(
-      join(roots.claudeProjectsDir, 'project', 'claude-session.jsonl'),
-      jsonLines([
-        {
-          type: 'user',
-          sessionId: 'claude-session',
-          timestamp: '2026-05-01T10:00:00.000Z',
-          cwd: '/tmp/claude',
-          message: { role: 'user', content: 'Claude title' }
-        }
-      ])
-    )
+    await writeJsonlFile(join(roots.claudeProjectsDir, 'project', 'claude-session.jsonl'), [
+      {
+        type: 'user',
+        sessionId: 'claude-session',
+        timestamp: '2026-05-01T10:00:00.000Z',
+        cwd: '/tmp/claude',
+        message: { role: 'user', content: 'Claude title' }
+      }
+    ])
+
+    await writeJsonlFile(join(roots.qoderProjectsDirs[0], 'project', 'qodercli-session.jsonl'), [
+      {
+        type: 'user',
+        sessionId: 'qodercli-session',
+        timestamp: '2026-05-01T10:00:30.000Z',
+        cwd: '/tmp/qodercli',
+        message: { role: 'user', content: 'Qoder CLI title' }
+      }
+    ])
 
     await mkdir(join(roots.codexSessionsDir, '2026', '05', '01'), { recursive: true })
     await writeFile(
@@ -577,23 +580,19 @@ describe('scanAiVaultSessions', () => {
       ])
     )
 
-    await mkdir(roots.piSessionsDir, { recursive: true })
-    await writeFile(
-      join(roots.piSessionsDir, 'pi-session.jsonl'),
-      jsonLines([
-        {
-          type: 'session',
-          id: 'pi-session',
-          timestamp: '2026-05-01T10:08:00.000Z',
-          cwd: '/tmp/pi'
-        },
-        {
-          type: 'message',
-          timestamp: '2026-05-01T10:08:01.000Z',
-          message: { role: 'user', content: [{ type: 'text', text: 'Pi title' }] }
-        }
-      ])
-    )
+    await writeJsonlFile(join(roots.piSessionsDir, 'pi-session.jsonl'), [
+      {
+        type: 'session',
+        id: 'pi-session',
+        timestamp: '2026-05-01T10:08:00.000Z',
+        cwd: '/tmp/pi'
+      },
+      {
+        type: 'message',
+        timestamp: '2026-05-01T10:08:01.000Z',
+        message: { role: 'user', content: [{ type: 'text', text: 'Pi title' }] }
+      }
+    ])
 
     const ompSessionFile = join(roots.ompSessionsDir, 'omp-session.jsonl')
     await mkdir(roots.ompSessionsDir, { recursive: true })
@@ -741,6 +740,9 @@ describe('scanAiVaultSessions', () => {
     )
     expect(commandByAgent.get('claude')).toBe(
       "cd '/tmp/claude' && claude --resume 'claude-session'"
+    )
+    expect(commandByAgent.get('qodercli')).toBe(
+      "cd '/tmp/qodercli' && qodercli --resume 'qodercli-session'"
     )
     expect(commandByAgent.get('codex')).toBe(
       `cd '/tmp/codex' && CODEX_HOME='${root}' codex resume 'codex-session'`

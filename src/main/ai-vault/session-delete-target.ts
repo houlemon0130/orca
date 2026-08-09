@@ -113,7 +113,9 @@ function sessionDeleteRemovals(args: {
     return [{ path: sessionDir, kind: 'directory', roots }]
   }
 
-  if (agent === 'claude') {
+  // qodercli mirrors Claude's layout, including the sibling session dir and the
+  // root-adjacent session-env companion.
+  if (agent === 'claude' || agent === 'qodercli') {
     const sessionId = basename(resolvedPath, extname(resolvedPath))
     // A degenerate stem ('.' from `..jsonl`, or empty) would resolve the session
     // dir to the project dir and trash every session in it.

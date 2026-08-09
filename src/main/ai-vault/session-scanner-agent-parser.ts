@@ -32,6 +32,10 @@ export async function parseAgentSessionFile(
   switch (candidate.agent) {
     case 'claude':
       return parseClaudeSessionFile(candidate.file, platform)
+    // Why: qodercli transcripts are byte-compatible Claude JSONL; only the
+    // agent identity (and thus resume command) differs.
+    case 'qodercli':
+      return parseClaudeSessionFile(candidate.file, platform, 'qodercli')
     case 'codex':
       return parseCodexSessionFile(candidate.file, platform, candidate.codexHome)
     case 'gemini':

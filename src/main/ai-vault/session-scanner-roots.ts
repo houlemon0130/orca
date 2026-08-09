@@ -23,6 +23,29 @@ export function claudeProjectsRootDirs(args: {
   ]
 }
 
+// Why: qodercli ships a global build (`~/.qoder`) and a CN build (`~/.qoder-cn`)
+// with identical Claude-shaped transcript stores; Orca models both as one agent,
+// so every root pair is scanned and allowlisted together.
+const QODER_PROJECTS_DIRS = [
+  join(homedir(), '.qoder', 'projects'),
+  join(homedir(), '.qoder-cn', 'projects')
+]
+
+// The local host and each WSL distro's Qoder projects roots. Callers reading
+// qodercli session files by path use these roots to reject arbitrary paths.
+export function qoderProjectsRootDirs(args: {
+  qoderProjectsDirs?: string[]
+  wslHomeDirs?: readonly string[]
+}): string[] {
+  return [
+    ...(args.qoderProjectsDirs ?? QODER_PROJECTS_DIRS),
+    ...(args.wslHomeDirs ?? []).flatMap((homeDir) => [
+      join(homeDir, '.qoder', 'projects'),
+      join(homeDir, '.qoder-cn', 'projects')
+    ])
+  ]
+}
+
 // The local host and each WSL distro's OMP sessions root. Callers reading OMP
 // session files by path use these roots to reject arbitrary paths.
 export function ompSessionsRootDirs(args: {

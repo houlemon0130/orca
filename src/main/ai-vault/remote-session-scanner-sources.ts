@@ -53,6 +53,12 @@ export function remoteSessionSources(
       // top-level sessions carrying the parent's sessionId.
       partitionSubagentTranscripts: partitionSubagentTranscriptPaths
     },
+    // qodercli mirrors Claude's store byte-for-byte; the global (`~/.qoder`)
+    // and CN (`~/.qoder-cn`) builds are alternate installs of one agent.
+    ...[['.qoder', 'projects'] as const, ['.qoder-cn', 'projects'] as const].map((segments) => ({
+      ...jsonlSource('qodercli', remoteHome, hostPlatform, segments, qoderCliParser),
+      partitionSubagentTranscripts: partitionSubagentTranscriptPaths
+    })),
     remoteAntigravitySource(remoteHome, hostPlatform),
     source(
       'gemini',
@@ -242,6 +248,16 @@ function parserOptions(context: RemoteScannerContext): RemoteParserOptions {
     executionHostId: context.executionHostId,
     executionHostPlatform: context.hostPlatform.os
   }
+}
+
+function qoderCliParser(
+  file: FileWithMtime,
+  content: string,
+  platform: NodeJS.Platform,
+  options: RemoteParserOptions,
+  signal?: AbortSignal
+): Promise<AiVaultSession | null> {
+  return parseClaudeSessionContent(file, content, platform, options, signal, 'qodercli')
 }
 
 function piParser(

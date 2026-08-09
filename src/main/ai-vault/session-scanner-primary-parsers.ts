@@ -42,10 +42,18 @@ export type ClaudeSessionParseState = {
   firstUserTitle: string | null
 }
 
-export function createClaudeSessionParseState(file: FileWithMtime): ClaudeSessionParseState {
+// qodercli is a Claude Code fork whose transcripts are byte-compatible, so one
+// parser serves both; the agent identity flows into the finalized session row
+// (id, label fallback, resume command).
+export type ClaudeTranscriptAgent = 'claude' | 'qodercli'
+
+export function createClaudeSessionParseState(
+  file: FileWithMtime,
+  agent: ClaudeTranscriptAgent = 'claude'
+): ClaudeSessionParseState {
   return {
     accumulator: createAccumulator({
-      agent: 'claude',
+      agent,
       file,
       sessionId: sessionIdFromFileName(file.path)
     }),
@@ -188,8 +196,11 @@ export async function finalizeClaudeSessionParseState(
   return finalizeSession(snapshot.accumulator, platform, options)
 }
 
-export function createClaudeSessionResumeState(file: FileWithMtime): ResumableSessionParseState {
-  return claudeResumeStateFromParseState(createClaudeSessionParseState(file))
+export function createClaudeSessionResumeState(
+  file: FileWithMtime,
+  agent: ClaudeTranscriptAgent = 'claude'
+): ResumableSessionParseState {
+  return claudeResumeStateFromParseState(createClaudeSessionParseState(file, agent))
 }
 
 function claudeResumeStateFromParseState(
@@ -207,13 +218,14 @@ function claudeResumeStateFromParseState(
 
 export async function parseClaudeSessionFile(
   file: FileWithMtime,
-  platform: NodeJS.Platform = process.platform
+  platform: NodeJS.Platform = process.platform,
+  agent: ClaudeTranscriptAgent = 'claude'
 ): Promise<AiVaultSession | null> {
   const lines = createInterface({
     input: createReadStream(file.path, { encoding: 'utf-8' }),
     crlfDelay: Infinity
   })
-  return parseClaudeSessionLines({ file, lines, platform })
+  return parseClaudeSessionLines({ file, lines, platform, agent })
 }
 
 export async function parseClaudeSessionContent(
@@ -221,13 +233,15 @@ export async function parseClaudeSessionContent(
   content: string,
   platform: NodeJS.Platform = process.platform,
   options: ParserSessionOptions = {},
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  agent: ClaudeTranscriptAgent = 'claude'
 ): Promise<AiVaultSession | null> {
   return parseClaudeSessionLines({
     file,
     lines: remoteSessionContentLines(content, signal),
     platform,
-    options
+    options,
+    agent
   })
 }
 
@@ -236,8 +250,9 @@ async function parseClaudeSessionLines(args: {
   lines: AsyncIterable<string> | Iterable<string>
   platform: NodeJS.Platform
   options?: ParserSessionOptions
+  agent?: ClaudeTranscriptAgent
 }): Promise<AiVaultSession | null> {
-  const state = createClaudeSessionParseState(args.file)
+  const state = createClaudeSessionParseState(args.file, args.agent)
   for await (const line of args.lines) {
     consumeClaudeSessionLine(state, line)
   }

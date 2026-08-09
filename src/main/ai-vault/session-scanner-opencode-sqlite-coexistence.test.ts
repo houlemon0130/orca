@@ -34,6 +34,7 @@ afterEach(async () => {
 function isolatedScanRoots(root: string) {
   return {
     claudeProjectsDir: join(root, 'claude-projects'),
+    qoderProjectsDirs: [join(root, 'qoder-projects'), join(root, 'qoder-cn-projects')],
     codexSessionsDir: join(root, 'codex-sessions'),
     geminiSessionsDir: join(root, 'gemini-sessions'),
     antigravityBrainDir: join(root, 'antigravity-brain'),

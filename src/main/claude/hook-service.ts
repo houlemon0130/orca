@@ -55,8 +55,9 @@ const DEFAULT_CLAUDE_HOOK_SERVICE_OPTIONS: ClaudeHookServiceOptions = {
 
 function getManagedScript(
   target: 'local' | 'posix' = 'local',
-  options: { skipWhenDevinImportsClaude?: boolean } = {}
+  options: { skipWhenDevinImportsClaude?: boolean; hookSource?: 'claude' | 'qodercli' } = {}
 ): string {
+  const hookSource = options.hookSource ?? 'claude'
   if (target === 'local' && process.platform === 'win32') {
     return [
       '@echo off',
@@ -71,7 +72,7 @@ function getManagedScript(
       'if defined ORCA_AGENT_HOOK_ENDPOINT if exist "%ORCA_AGENT_HOOK_ENDPOINT%" call "%ORCA_AGENT_HOOK_ENDPOINT%" 2>nul',
       ...buildWindowsHookEnvironmentGuardLines(),
       // Why: use curl.exe to avoid an extra PowerShell startup per hook.
-      buildWindowsAgentHookCurlPostCommand('claude'),
+      buildWindowsAgentHookCurlPostCommand(hookSource),
       'exit /b 0',
       ...buildWindowsHookStdinDrainEpilogue(),
       ''
@@ -99,7 +100,7 @@ function getManagedScript(
     'fi',
     // Why: post form fields because path-bearing payloads are unsafe in hand-built JSON.
     // Why: pipe payload to curl stdin to keep large output off the command line.
-    'printf \'%s\' "$payload" | curl -sS -X POST "http://127.0.0.1:${ORCA_AGENT_HOOK_PORT}/hook/claude" \\',
+    `printf '%s' "$payload" | curl -sS -X POST "http://127.0.0.1:\${ORCA_AGENT_HOOK_PORT}/hook/${hookSource}" \\`,
     '  --connect-timeout 0.5 --max-time 1.5 \\',
     '  -H "Content-Type: application/x-www-form-urlencoded" \\',
     '  -H "X-Orca-Agent-Hook-Token: ${ORCA_AGENT_HOOK_TOKEN}" \\',
@@ -120,6 +121,13 @@ export class ClaudeHookService {
 
   constructor(options: ClaudeHookServiceOptions = DEFAULT_CLAUDE_HOOK_SERVICE_OPTIONS) {
     this.options = options
+  }
+
+  // Why: qodercli gets its own hook route so status payloads stamp its real
+  // identity; OpenClaude keeps posting to /hook/claude because it IS Claude Code
+  // under a different launch identity, resolved by launch metadata instead.
+  private hookSource(): 'claude' | 'qodercli' {
+    return this.options.agent === 'qodercli' ? 'qodercli' : 'claude'
   }
 
   getStatus(): AgentHookInstallStatus {
@@ -191,7 +199,10 @@ export class ClaudeHookService {
     )
     writeManagedScript(
       scriptPath,
-      getManagedScript('local', { skipWhenDevinImportsClaude: this.options.agent === 'claude' })
+      getManagedScript('local', {
+        skipWhenDevinImportsClaude: this.options.agent === 'claude',
+        hookSource: this.hookSource()
+      })
     )
     // Why: the statusline usage feed is Claude-only — OpenClaude data would be misattributed to the Claude provider.
     if (this.options.agent === 'claude') {
@@ -253,7 +264,10 @@ export class ClaudeHookService {
       await writeManagedScriptRemote(
         sftp,
         remoteScriptPath,
-        getManagedScript('posix', { skipWhenDevinImportsClaude: this.options.agent === 'claude' })
+        getManagedScript('posix', {
+          skipWhenDevinImportsClaude: this.options.agent === 'claude',
+          hookSource: this.hookSource()
+        })
       )
       // Why: no statusline install here — this path serves SSH remotes and WSL guests, whose relay hook
       // listener doesn't route /statusline/claude, and an SSH box's Claude login can be a different

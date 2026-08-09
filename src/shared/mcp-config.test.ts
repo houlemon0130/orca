@@ -242,7 +242,7 @@ describe('mcp-config', () => {
     expect(getMcpConfigParentDirs()).toEqual(['.cursor', '.claude'])
     expect(
       MCP_CONFIG_CANDIDATES.map((candidate) => getMcpConfigCandidateParentDir(candidate))
-    ).toEqual(['', '.cursor', '', '.claude'])
+    ).toEqual(['', '.cursor', '', '.claude', ''])
 
     const entriesByRelativeDir = new Map([
       [

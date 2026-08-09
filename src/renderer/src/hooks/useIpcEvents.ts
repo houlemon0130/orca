@@ -152,6 +152,7 @@ import { shouldSuppressCodexAutoApprovalStatus } from '@/components/terminal-pan
 import { showTerminalShortcutCaptureNotification } from '@/lib/terminal-shortcut-capture-notification'
 import { resolveAgentStatusTerminalTitle } from '@/lib/agent-status-terminal-title'
 import { titleHasAgentName } from '../../../shared/agent-detection'
+import { resolveExplicitTerminalTitleAgentType } from '../../../shared/terminal-title-agent-type'
 import { getRuntimeEnvironmentIdForWorktree } from '@/lib/worktree-runtime-owner'
 import { resolveTerminalWorktreeRoute } from '@/lib/terminal-worktree-route'
 import { resolveAgentPaneAuthorityKey } from '@/store/slices/agent-pane-authority'
@@ -3847,13 +3848,18 @@ function resolveHookPayloadAgentType(
   payload: ParsedAgentStatusPayload,
   terminalTitle: string | undefined
 ): ParsedAgentStatusPayload {
-  if (
-    payload.agentType !== 'claude' ||
-    !terminalTitle ||
-    !titleHasAgentName(terminalTitle, 'openclaude')
-  ) {
+  if (payload.agentType !== 'claude' || !terminalTitle) {
     return payload
   }
-  // Why: OpenClaude emits Claude-compatible hooks; the title is the last renderer signal to keep it out of Claude-only status paths.
-  return { ...payload, agentType: 'openclaude' }
+  if (titleHasAgentName(terminalTitle, 'openclaude')) {
+    // Why: OpenClaude emits Claude-compatible hooks; the title is the last renderer signal to keep it out of Claude-only status paths.
+    return { ...payload, agentType: 'openclaude' }
+  }
+  // Why: sessions launched under a pre-upgrade managed hook script still post to
+  // /hook/claude; the fork's distinctive title restores its identity until the
+  // reinstalled script posts to /hook/qodercli.
+  if (resolveExplicitTerminalTitleAgentType(terminalTitle) === 'qodercli') {
+    return { ...payload, agentType: 'qodercli' }
+  }
+  return payload
 }

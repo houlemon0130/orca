@@ -589,7 +589,46 @@ describe('listAiVaultSubagentSessions gating', () => {
       executionHostId: 'local'
     })
 
-    expect(mocks.listClaudeSubagentSessions).toHaveBeenCalledWith({ parentFilePath })
+    expect(mocks.listClaudeSubagentSessions).toHaveBeenCalledWith({
+      parentFilePath,
+      agent: 'claude'
+    })
+  })
+
+  it('lists subagents for a local Qoder CLI session inside either install root', async () => {
+    const globalPath = join(homedir(), '.qoder', 'projects', 'proj', 'sess.jsonl')
+    const cnPath = join(homedir(), '.qoder-cn', 'projects', 'proj', 'sess.jsonl')
+
+    await _internals.listAiVaultSubagentSessions({
+      agent: 'qodercli',
+      parentFilePath: globalPath,
+      executionHostId: 'local'
+    })
+    await _internals.listAiVaultSubagentSessions({
+      agent: 'qodercli',
+      parentFilePath: cnPath,
+      executionHostId: 'local'
+    })
+
+    expect(mocks.listClaudeSubagentSessions).toHaveBeenCalledWith({
+      parentFilePath: globalPath,
+      agent: 'qodercli'
+    })
+    expect(mocks.listClaudeSubagentSessions).toHaveBeenCalledWith({
+      parentFilePath: cnPath,
+      agent: 'qodercli'
+    })
+  })
+
+  it('rejects a qodercli path that only sits inside the Claude projects root', async () => {
+    const result = await _internals.listAiVaultSubagentSessions({
+      agent: 'qodercli',
+      parentFilePath: join(claudeRoot, 'proj', 'sess.jsonl'),
+      executionHostId: 'local'
+    })
+
+    expect(result).toEqual({ sessions: [], issues: [] })
+    expect(mocks.listClaudeSubagentSessions).not.toHaveBeenCalled()
   })
 
   it('returns empty for a remote Claude session without reading the filesystem', async () => {

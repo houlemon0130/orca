@@ -160,6 +160,7 @@ function buildAgentResumeInvocation(
     case 'copilot':
       return `${baseCommand} --resume=${sessionArg}`
     case 'claude':
+    case 'qodercli':
     case 'cursor':
     case 'gemini':
     case 'grok':

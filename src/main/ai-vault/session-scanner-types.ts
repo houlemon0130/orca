@@ -8,6 +8,8 @@ import type { ExecutionHostId } from '../../shared/execution-host'
 
 export type AiVaultScanOptions = {
   claudeProjectsDir?: string
+  // Overrides BOTH qodercli roots (global `~/.qoder` and CN `~/.qoder-cn`).
+  qoderProjectsDirs?: string[]
   codexSessionsDir?: string
   additionalCodexSessionsDirs?: readonly string[]
   // Why: tests inject a sandbox "real ~/.codex" so real-home attribution
