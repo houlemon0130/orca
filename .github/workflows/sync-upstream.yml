@@ -15,12 +15,22 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
+          ref: main
           fetch-depth: 0
           persist-credentials: true
 
-      - name: Sync from upstream
+      - name: Sync main from upstream
         run: |
+          git config user.name "houlemon0130-bot"
+          git config user.email "houlemon0130@users.noreply.github.com"
           git remote add upstream https://github.com/stablyai/orca.git
           git fetch upstream main
           git merge --no-edit upstream/main
           git push origin main
+
+      - name: Sync qodercli-support with main
+        run: |
+          git fetch origin qodercli-support
+          git checkout qodercli-support
+          git merge --no-edit origin/main
+          git push origin qodercli-support
