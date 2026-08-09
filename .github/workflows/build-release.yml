@@ -8,6 +8,11 @@ name: Build fork release
 # The publish config in config/electron-builder.config.cjs already targets
 # owner houlemon0130 / repo orca (the default, non-hourly path), so plain
 # electron-builder --publish with the default GITHUB_TOKEN publishes here.
+#
+# Why a release is pre-created: electron-builder runs one packager per target
+# arch (x64 + arm64) in parallel, and each races to create the GitHub release;
+# the loser gets 422 "Published releases must have a valid tag". Pre-creating
+# the release makes both packagers find it and just upload into it.
 
 on:
   push:
@@ -78,6 +83,18 @@ jobs:
 
       - name: Build app
         run: pnpm build:release
+
+      # Pre-create so the two arch packagers don't race to create it (see header).
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release create "v${{ steps.version.outputs.version }}" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "${{ steps.version.outputs.version }}" \
+            --notes "Automated build of qodercli-support @ ${{ steps.version.outputs.commit }} (unsigned)" \
+            || echo "::warning::release already exists; electron-builder will reuse it"
 
       - name: Publish macOS artifacts
         run: >-
