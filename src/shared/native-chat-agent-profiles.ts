@@ -24,6 +24,11 @@ const NATIVE_CHAT_AGENT_PROFILES: Partial<Record<AgentType, NativeChatAgentProfi
     groupedSlash: true,
     skillSourceOwner: 'claude'
   },
+  qodercli: {
+    skillPrefix: '/',
+    groupedSlash: true,
+    skillSourceOwner: 'qodercli'
+  },
   grok: {
     skillPrefix: '/',
     groupedSlash: true,

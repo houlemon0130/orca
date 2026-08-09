@@ -43,6 +43,32 @@ describe('readNativeChatTranscript (claude)', () => {
     ).resolves.toMatchObject({ messages: [{ id: 'openclaude-assistant' }] })
   })
 
+  it('decodes qodercli transcripts, skipping its fork-only record types', async () => {
+    // qodercli interleaves bookkeeping records Claude never writes; the decoder
+    // contract skips unknown shapes instead of throwing.
+    const filePath = await writeFixture('orca-native-chat-qodercli-', [
+      { type: 'workspace-directories', sessionId: 's1', directories: ['/repo'] },
+      { type: 'runtime-config', sessionId: 's1', model: 'ultimate', reasoningEffort: null },
+      {
+        type: 'user',
+        uuid: 'qoder-user',
+        timestamp: '2026-08-09T15:05:51.794Z',
+        message: { role: 'user', content: 'hi' }
+      },
+      { type: 'active-leaf', sessionId: 's1', leafUuid: 'qoder-user', explicit: false },
+      {
+        type: 'assistant',
+        uuid: 'qoder-assistant',
+        message: { role: 'assistant', content: [{ type: 'text', text: 'hello from qoder' }] }
+      },
+      { type: 'ai-title', sessionId: 's1', title: 'Greeting session' }
+    ])
+
+    await expect(readNativeChatTranscript('qodercli', 's1', { filePath })).resolves.toMatchObject({
+      messages: [{ id: 'qoder-user' }, { id: 'qoder-assistant' }]
+    })
+  })
+
   it('returns ordered user/assistant/tool messages with no 5-message cap', async () => {
     const records: unknown[] = []
     // 4 user/assistant turns = 8 messages, well past the AI-Vault preview cap.

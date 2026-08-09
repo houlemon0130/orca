@@ -7,6 +7,7 @@ import {
   parseClaudeModelList
 } from './claude-model-list-probe'
 import { labelFromModelId } from './model-id-label'
+import { parseQoderCliModelList } from './qodercli-model-list'
 
 /* eslint-disable max-lines -- Why: this is the single registry for non-interactive commit-message agents, their model discovery parsers, and UI capabilities. */
 
@@ -321,6 +322,14 @@ export function parseAntigravityModels(stdout: string): CommitMessageModel[] {
   return uniqueModels(models)
 }
 
+export function parseQoderCliModels(stdout: string): CommitMessageModel[] {
+  return parseQoderCliModelList(stdout).map(({ id, label, description }) => ({
+    id,
+    label,
+    ...(description ? { description } : {})
+  }))
+}
+
 export const COMMIT_MESSAGE_AGENT_SPECS: Partial<Record<TuiAgent, CommitMessageAgentSpec>> = {
   claude: {
     id: 'claude',
@@ -370,6 +379,34 @@ export const COMMIT_MESSAGE_AGENT_SPECS: Partial<Record<TuiAgent, CommitMessageA
       }
     ],
     defaultModelId: 'sonnet'
+  },
+  qodercli: {
+    id: 'qodercli',
+    label: 'Qoder CLI',
+    binary: 'qodercli',
+    // Why: a Claude Code fork — `-p` reads the prompt from stdin, which keeps
+    // large staged diffs off argv.
+    promptDelivery: 'stdin',
+    buildArgs: ({ model }) => [
+      '-p',
+      '--output-format',
+      'text',
+      '--model',
+      model,
+      // Why: one-shot generations must not land in ~/.qoder/projects, where the
+      // usage scanner and session vault would pick them up as chat sessions.
+      '--no-session-persistence'
+    ],
+    modelSource: 'dynamic',
+    // Why: the fork's models are deployment-specific gateway aliases; only
+    // `Auto` is a safe static fallback when the listing probe fails.
+    modelDiscovery: {
+      binary: 'qodercli',
+      args: ['--list-models'],
+      parse: parseQoderCliModels
+    },
+    models: [{ id: 'Auto', label: 'Auto' }],
+    defaultModelId: 'Auto'
   },
   codex: {
     id: 'codex',

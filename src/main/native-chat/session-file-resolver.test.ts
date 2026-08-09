@@ -52,6 +52,41 @@ describe('resolveSessionFilePath', () => {
     ).resolves.toBe(target)
   })
 
+  it('resolves qodercli sessions from the qoder projects roots', async () => {
+    const root = await makeRoot('orca-native-chat-resolve-qodercli-')
+    const claudeProjectsDir = join(root, 'claude-projects')
+    await mkdir(claudeProjectsDir, { recursive: true })
+    const qoderProjectsDir = join(root, 'qoder-projects')
+    const projectDir = join(qoderProjectsDir, '-Users-ada-repo')
+    await mkdir(projectDir, { recursive: true })
+    const target = join(projectDir, 'sess-qoder-1.jsonl')
+    await writeFile(target, '{}\n')
+
+    await expect(
+      resolveSessionFilePath('qodercli', 'sess-qoder-1', {
+        claudeProjectsDir,
+        qoderProjectsDirs: [qoderProjectsDir]
+      })
+    ).resolves.toBe(target)
+  })
+
+  it('searches the CN qoder root after the global one and skips missing roots', async () => {
+    const root = await makeRoot('orca-native-chat-resolve-qodercli-cn-')
+    const globalDir = join(root, 'qoder-projects')
+    await mkdir(globalDir, { recursive: true })
+    const cnProjectDir = join(root, 'qoder-cn-projects', '-Users-ada-repo')
+    await mkdir(cnProjectDir, { recursive: true })
+    const target = join(cnProjectDir, 'sess-qoder-cn.jsonl')
+    await writeFile(target, '{}\n')
+
+    await expect(
+      resolveSessionFilePath('qodercli', 'sess-qoder-cn', {
+        claudeProjectsDir: join(root, 'missing-claude-root'),
+        qoderProjectsDirs: [globalDir, join(root, 'qoder-cn-projects')]
+      })
+    ).resolves.toBe(target)
+  })
+
   it('resolves Grok chat_history.jsonl under encodeURIComponent(cwd)/sessionId', async () => {
     const root = await makeRoot('orca-native-chat-resolve-grok-')
     const grokSessionsDir = join(root, 'grok-sessions')

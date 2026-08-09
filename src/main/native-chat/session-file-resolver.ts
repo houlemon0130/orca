@@ -22,6 +22,14 @@ function claudeProjectsDir(): string {
   return join(homedir(), '.claude', 'projects')
 }
 
+// Why: qodercli writes the Claude projects layout (`<slug>/<id>.jsonl`) under its
+// own roots — `~/.qoder` for the global build, `~/.qoder-cn` for the CN build —
+// and both map to the 'claude' transcript agent. Searched after the Claude root
+// so a same-id Claude transcript (impossible in practice, UUIDs) cannot be shadowed.
+function qoderProjectsDirs(): string[] {
+  return [join(homedir(), '.qoder', 'projects'), join(homedir(), '.qoder-cn', 'projects')]
+}
+
 // Why: Orca launches Codex with ORCA_CODEX_HOME pointing at its own managed
 // runtime home, so Orca-started Codex rollout files land under
 // `<managed home>/sessions`, NOT `~/.codex/sessions`. Search the managed home
@@ -53,6 +61,9 @@ function ompSessionsDir(): string {
 export type ResolveSessionFileOptions = {
   /** Override the Claude projects root (used by tests / isolated scans). */
   claudeProjectsDir?: string
+  /** Override the Qoder CLI projects roots (`~/.qoder/projects`, `~/.qoder-cn/projects`),
+   *  searched in order after the Claude root (tests / isolated scans). */
+  qoderProjectsDirs?: string[]
   /** Override the Codex sessions roots, searched in order (tests / isolated
    *  scans). Defaults to the orca-managed home then CODEX_HOME/~/.codex. */
   codexSessionsDirs?: string[]
@@ -104,7 +115,16 @@ export async function resolveSessionFilePath(
   }
 
   if (transcriptAgent === 'claude') {
-    return resolveClaudeSessionFile(trimmedId, options.claudeProjectsDir ?? claudeProjectsDir())
+    // Why: an override replaces the whole root list (codexSessionsDirs semantics),
+    // so isolated tests and scans never walk this process's real home roots.
+    const overrideRoots = [
+      ...(options.claudeProjectsDir ? [options.claudeProjectsDir] : []),
+      ...(options.qoderProjectsDirs ?? [])
+    ]
+    return resolveClaudeSessionFile(
+      trimmedId,
+      overrideRoots.length > 0 ? overrideRoots : [claudeProjectsDir(), ...qoderProjectsDirs()]
+    )
   }
   if (transcriptAgent === 'codex') {
     const overrideDirs = options.codexSessionsDirs
@@ -127,14 +147,22 @@ export async function resolveSessionFilePath(
 
 async function resolveClaudeSessionFile(
   sessionId: string,
-  projectsDir: string
+  projectsDirs: string[]
 ): Promise<string | null> {
   const targetName = `${sessionId}.jsonl`
-  const files = await walkSessionFiles(projectsDir, 'claude', [], {
-    extensions: new Set(['.jsonl']),
-    filePredicate: (path) => basename(path) === targetName
-  })
-  return files[0] ?? null
+  for (const projectsDir of projectsDirs) {
+    if (!existsSync(projectsDir)) {
+      continue
+    }
+    const files = await walkSessionFiles(projectsDir, 'claude', [], {
+      extensions: new Set(['.jsonl']),
+      filePredicate: (path) => basename(path) === targetName
+    })
+    if (files[0]) {
+      return files[0]
+    }
+  }
+  return null
 }
 
 async function resolveCodexSessionFile(

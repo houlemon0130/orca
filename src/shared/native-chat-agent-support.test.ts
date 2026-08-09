@@ -7,8 +7,9 @@ import {
 } from './native-chat-agent-support'
 
 describe('resolveNativeChatTranscriptAgent', () => {
-  it('maps OpenClaude onto the Claude transcript format', () => {
+  it('maps OpenClaude and Qoder CLI onto the Claude transcript format', () => {
     expect(resolveNativeChatTranscriptAgent('openclaude')).toBe('claude')
+    expect(resolveNativeChatTranscriptAgent('qodercli')).toBe('claude')
     expect(resolveNativeChatTranscriptAgent('claude')).toBe('claude')
   })
 
@@ -26,6 +27,7 @@ describe('isNativeChatSupportedAgent', () => {
   it('recognizes the parseable agents and rejects unknown / nullish input', () => {
     expect(isNativeChatSupportedAgent('claude')).toBe(true)
     expect(isNativeChatSupportedAgent('openclaude')).toBe(true)
+    expect(isNativeChatSupportedAgent('qodercli')).toBe(true)
     expect(isNativeChatSupportedAgent('omp')).toBe(true)
     expect(isNativeChatSupportedAgent('cursor')).toBe(false)
     expect(isNativeChatSupportedAgent(null)).toBe(false)
@@ -41,6 +43,7 @@ describe('nativeChatRequiresLocalTranscript', () => {
     expect(nativeChatRequiresLocalTranscript('omp')).toBe(true)
     expect(nativeChatRequiresLocalTranscript('claude')).toBe(false)
     expect(nativeChatRequiresLocalTranscript('openclaude')).toBe(false)
+    expect(nativeChatRequiresLocalTranscript('qodercli')).toBe(false)
     expect(nativeChatRequiresLocalTranscript('codex')).toBe(false)
     expect(nativeChatRequiresLocalTranscript('cursor')).toBe(false)
     expect(nativeChatRequiresLocalTranscript(null)).toBe(false)
@@ -49,9 +52,11 @@ describe('nativeChatRequiresLocalTranscript', () => {
 })
 
 describe('shouldStepNativeChatAskAnswer', () => {
-  it('steps the digit-commit selector agents (Claude, OpenClaude, Codex)', () => {
+  it('steps the digit-commit selector agents (Claude family, Codex)', () => {
     expect(shouldStepNativeChatAskAnswer('claude')).toBe(true)
     expect(shouldStepNativeChatAskAnswer('openclaude')).toBe(true)
+    // qodercli forked Claude Code and keeps its digit-commit AskUserQuestion card.
+    expect(shouldStepNativeChatAskAnswer('qodercli')).toBe(true)
     // Codex 0.145's request_user_input card ignores typed labels and commits on
     // the highlighted row, so pasted answers misdeliver like STA-1860.
     expect(shouldStepNativeChatAskAnswer('codex')).toBe(true)

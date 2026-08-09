@@ -105,7 +105,10 @@ export function useMobileNativeChatSessionOptions(args: {
     // Widening this to a `defaultModelIsCliDefault` catalog (grok) also needs the
     // effective-model resolution desktop does — `previousModelId` below is tracked-only,
     // so a CLI-default model would render option rows that do nothing when tapped.
-    () => (agent === 'claude' || agent === 'codex' ? getAgentSessionOptionCatalog(agent) : null),
+    () =>
+      agent === 'claude' || agent === 'qodercli' || agent === 'codex'
+        ? getAgentSessionOptionCatalog(agent)
+        : null,
     [agent]
   )
   const identity = agent && scopeKey ? `${scopeKey}\0${agent}` : null

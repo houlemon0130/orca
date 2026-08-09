@@ -162,6 +162,24 @@ export function buildSkillDiscoverySources(
       'home',
       ['agent-skills'],
       'cursor'
+    ),
+    // Why: qodercli ships as two builds with separate roots — global `~/.qoder`
+    // and CN `~/.qoder-cn` — that Orca models as one agent.
+    source(
+      'home-qodercli',
+      'Qoder CLI home',
+      pathApi.join(home, '.qoder', 'skills'),
+      'home',
+      ['agent-skills'],
+      'qodercli'
+    ),
+    source(
+      'home-qodercli-cn',
+      'Qoder CLI CN home',
+      pathApi.join(home, '.qoder-cn', 'skills'),
+      'home',
+      ['agent-skills'],
+      'qodercli'
     )
   ]
 

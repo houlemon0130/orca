@@ -70,6 +70,19 @@ describe('resolveSessionFilePath on a Windows host with WSL', () => {
     expect(resolved).toBe(ROLLOUT_UNC)
   })
 
+  it('translates a WSL qodercli transcript path to its UNC twin', async () => {
+    // Why: qodercli's ~/.qoder home has no dedicated WSL branch; this pins the
+    // layout-generic /home/... translation covering it.
+    const resolved = await resolveSessionFilePath('qodercli', 'wsl-qoder-sess', {
+      transcriptPath: '/home/ada/.qoder/projects/-repo/wsl-qoder-sess.jsonl',
+      claudeProjectsDir: 'C:\\missing-claude-root',
+      qoderProjectsDirs: []
+    })
+    expect(resolved).toBe(
+      '\\\\wsl.localhost\\Ubuntu\\home\\ada\\.qoder\\projects\\-repo\\wsl-qoder-sess.jsonl'
+    )
+  })
+
   it('searches the WSL managed Codex sessions root when no hook path is known', async () => {
     await resolveSessionFilePath('codex', 'wsl-sess')
     expect(scanned.dirs).toContain(WSL_MANAGED_SESSIONS_DIR)

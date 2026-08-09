@@ -9,6 +9,7 @@ import {
   GEMINI_SESSION_OPTION_CATALOG
 } from './agent-session-option-catalog-gemini-cursor'
 import { GROK_SESSION_OPTION_CATALOG } from './agent-session-option-catalog-grok'
+import { QODERCLI_SESSION_OPTION_CATALOG } from './agent-session-option-catalog-qodercli'
 import type {
   AgentSessionOptionCatalog,
   AgentSessionOptionCatalogMap,
@@ -29,6 +30,7 @@ export { createClaudeCatalogOptions }
 
 const CATALOGS: AgentSessionOptionCatalogMap = {
   claude: CLAUDE_SESSION_OPTION_CATALOG,
+  qodercli: QODERCLI_SESSION_OPTION_CATALOG,
   codex: CODEX_SESSION_OPTION_CATALOG,
   gemini: GEMINI_SESSION_OPTION_CATALOG,
   cursor: CURSOR_SESSION_OPTION_CATALOG,

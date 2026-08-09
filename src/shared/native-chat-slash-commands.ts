@@ -78,9 +78,37 @@ const CODEX_COMMANDS: readonly SlashCommandSuggestion[] = [
   { name: 'subagents', description: 'Switch the active agent thread' }
 ]
 
+// Curated from qodercli's built-in command registry. The fork diverges from
+// Claude's set (no /help; adds /effort, /usage, /context), so it gets its own list.
+const QODERCLI_COMMANDS: readonly SlashCommandSuggestion[] = [
+  { name: 'clear', description: 'Clear conversation history' },
+  { name: 'compact', description: 'Summarize and compact the conversation' },
+  { name: 'model', description: 'Choose the model' },
+  { name: 'effort', description: 'Set the reasoning effort' },
+  { name: 'usage', description: 'View usage and credits' },
+  { name: 'status', description: 'Show session status' },
+  { name: 'context', description: 'Visualize context usage' },
+  { name: 'memory', description: 'Edit memory files' },
+  { name: 'init', description: 'Initialize an AGENTS.md' },
+  { name: 'review', description: 'Review the current changes' },
+  { name: 'permissions', description: 'Manage tool permissions' },
+  { name: 'plan', description: 'Switch to Plan mode' },
+  { name: 'resume', description: 'Resume a saved session' },
+  { name: 'new', description: 'Start a new session' },
+  { name: 'rename', description: 'Rename the current session' },
+  { name: 'skills', description: 'Manage and use skills' },
+  { name: 'mcp', description: 'Manage MCP servers' },
+  { name: 'agents', description: 'Manage subagents' },
+  { name: 'hooks', description: 'View lifecycle hooks' },
+  { name: 'diff', description: 'Show the working diff' },
+  { name: 'theme', description: 'Choose a theme' },
+  { name: 'vim', description: 'Toggle Vim mode' }
+]
+
 const COMMANDS_BY_AGENT: Partial<Record<AgentType, readonly SlashCommandSuggestion[]>> = {
   claude: CLAUDE_COMMANDS,
   openclaude: CLAUDE_COMMANDS,
+  qodercli: QODERCLI_COMMANDS,
   codex: CODEX_COMMANDS
 }
 

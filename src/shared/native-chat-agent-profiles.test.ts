@@ -17,6 +17,11 @@ describe('native chat agent picker profiles', () => {
       skillSourceOwner: 'claude'
     })
     expect(getNativeChatAgentProfile('openclaude')).toMatchObject({ skillSourceOwner: 'claude' })
+    expect(getNativeChatAgentProfile('qodercli')).toMatchObject({
+      skillPrefix: '/',
+      groupedSlash: true,
+      skillSourceOwner: 'qodercli'
+    })
     expect(getNativeChatAgentProfile('grok')).toMatchObject({
       skillPrefix: '/',
       groupedSlash: true,

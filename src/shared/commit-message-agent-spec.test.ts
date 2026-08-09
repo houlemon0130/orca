@@ -36,7 +36,8 @@ describe('COMMIT_MESSAGE_AGENT_SPECS', () => {
       'cursor',
       'kimi',
       'opencode',
-      'pi'
+      'pi',
+      'qodercli'
     ])
   })
 
@@ -44,6 +45,27 @@ describe('COMMIT_MESSAGE_AGENT_SPECS', () => {
     expect(COMMIT_MESSAGE_AGENT_SPECS.claude?.defaultModelId).toBe('sonnet')
     expect(COMMIT_MESSAGE_AGENT_SPECS.codex?.defaultModelId).toBe('gpt-5.5')
     expect(COMMIT_MESSAGE_AGENT_SPECS.pi?.defaultModelId).toBe('github-copilot/gpt-5.4-mini')
+  })
+
+  it('runs qodercli one-shots without persisting a session', () => {
+    const spec = COMMIT_MESSAGE_AGENT_SPECS.qodercli
+    expect(spec).toBeDefined()
+    expect(spec!.promptDelivery).toBe('stdin')
+    const args = spec!.buildArgs({ prompt: 'PROMPT', model: 'Ultimate' })
+    expect(args).toEqual([
+      '-p',
+      '--output-format',
+      'text',
+      '--model',
+      'Ultimate',
+      // Why: a persisted one-shot would surface in usage scans and the vault.
+      '--no-session-persistence'
+    ])
+    expect(spec!.modelDiscovery).toMatchObject({ binary: 'qodercli', args: ['--list-models'] })
+    expect(spec!.modelDiscovery!.parse('MODEL\nAuto\nUltimate (u-1)\n')).toEqual([
+      { id: 'Auto', label: 'Auto' },
+      { id: 'Ultimate', label: 'Ultimate', description: 'u-1' }
+    ])
   })
 
   it('uses --prompt (not Claude --print) for Kimi non-interactive generation', () => {
