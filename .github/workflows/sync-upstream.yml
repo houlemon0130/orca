@@ -21,6 +21,8 @@ jobs:
 
       - name: Sync main from upstream
         run: |
+          git config user.name "houlemon0130-bot"
+          git config user.email "houlemon0130@users.noreply.github.com"
           git remote add upstream https://github.com/stablyai/orca.git
           git fetch upstream main
           git merge --no-edit upstream/main
