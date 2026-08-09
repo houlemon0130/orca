@@ -1,0 +1,41 @@
+name: Debug tag validation
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: tag to test
+        required: false
+        default: v1.4.177-rc.0.local.1786281676.535abf66878d
+permissions:
+  contents: write
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: POST release with GITHUB_TOKEN
+        env:
+          TAG: ${{ github.event.inputs.tag }}
+        run: |
+          set -x
+          # exact electron-builder body
+          curl -sS -o /tmp/resp.json -w "HTTP %{http_code}\n" \
+            -X POST \
+            -H "Authorization: Bearer ${{ github.token }}" \
+            -H "Accept: application/vnd.github+json" \
+            -H "Content-Type: application/json" \
+            "https://api.github.com/repos/houlemon0130/orca/releases" \
+            -d "{\"tag_name\":\"$TAG\",\"name\":\"${TAG#v}\",\"draft\":false,\"prerelease\":false}"
+          cat /tmp/resp.json
+          echo
+          echo "--- cleanup ---"
+          RID=$(jq -r '.id // empty' /tmp/resp.json)
+          if [ -n "$RID" ]; then
+            curl -sS -o /dev/null -w "delete release: HTTP %{http_code}\n" \
+              -X DELETE \
+              -H "Authorization: Bearer ${{ github.token }}" \
+              "https://api.github.com/repos/houlemon0130/orca/releases/$RID"
+            curl -sS -o /dev/null -w "delete tag: HTTP %{http_code}\n" \
+              -X DELETE \
+              -H "Authorization: Bearer ${{ github.token }}" \
+              "https://api.github.com/repos/houlemon0130/orca/git/refs/tags/$(python3 -c 'import urllib.parse,sys;print(urllib.parse.quote(sys.argv[1]))' "$TAG")"
+          fi
