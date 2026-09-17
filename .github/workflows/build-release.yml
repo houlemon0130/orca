@@ -19,8 +19,6 @@ name: Build fork release
 # the release makes both packagers find it and just upload into it.
 
 on:
-  push:
-    branches: [qodercli-support]
   workflow_dispatch:
 
 permissions:
